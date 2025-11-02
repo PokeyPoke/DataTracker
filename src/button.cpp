@@ -56,19 +56,13 @@ bool ButtonHandler::isTouched() {
     }
 
     // External capacitive touch module
-    // Most modules output HIGH when touched
-    // Using digital read for clean signal
-    int value = digitalRead(pin);
+    // Use analog reading since digitalRead doesn't work reliably on this pin
+    // Not touched: ~6-20
+    // Touched: ~4095
+    // Threshold at 2000 (midpoint)
+    int analogValue = analogRead(pin);
 
-    // Debug: Uncomment to see raw values
-    // static unsigned long lastPrint = 0;
-    // if (millis() - lastPrint > 1000) {
-    //     Serial.print("GPIO2: ");
-    //     Serial.println(value);
-    //     lastPrint = millis();
-    // }
-
-    return value == HIGH;
+    return analogValue > 2000;
 }
 
 ButtonEvent ButtonHandler::check() {

@@ -155,7 +155,7 @@ void loop() {
 
         int digitalVal = digitalRead(BUTTON_PIN);
         int analogVal = analogRead(BUTTON_PIN);
-        bool pressed = digitalVal == HIGH;  // Assuming active-HIGH for capacitive touch
+        bool pressed = analogVal > 2000;  // Use analog threshold (works when digital doesn't)
 
         display.showButtonStatus(pressed, digitalVal, analogVal);
         delay(50);  // Update frequently in debug mode
