@@ -295,3 +295,31 @@ void DisplayManager::showModule(const char* moduleId) {
         showError("Unknown module");
     }
 }
+
+void DisplayManager::showButtonStatus(bool isPressed, int digitalValue, int analogValue) {
+    u8g2.clearBuffer();
+
+    // Title
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    u8g2.drawStr(20, 10, "BUTTON DEBUG");
+
+    // Button status indicator
+    u8g2.setFont(u8g2_font_logisoso24_tn);
+    if (isPressed) {
+        u8g2.drawStr(40, 35, "ON");
+    } else {
+        u8g2.drawStr(30, 35, "OFF");
+    }
+
+    // Digital value
+    u8g2.setFont(u8g2_font_6x10_tr);
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "Digital: %d (%s)", digitalValue, digitalValue ? "HIGH" : "LOW");
+    u8g2.drawStr(2, 48, buffer);
+
+    // Analog value
+    snprintf(buffer, sizeof(buffer), "Analog: %d", analogValue);
+    u8g2.drawStr(2, 60, buffer);
+
+    u8g2.sendBuffer();
+}

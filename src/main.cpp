@@ -24,6 +24,7 @@ ButtonHandler button(BUTTON_PIN);
 
 // State management
 bool configMode = false;
+bool buttonDebugMode = false;  // Button debug mode
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastSerialCheck = 0;
 #define DISPLAY_UPDATE_INTERVAL 1000  // Update display every 1s
@@ -125,6 +126,19 @@ void loop() {
     if (now - lastSerialCheck > SERIAL_CHECK_INTERVAL) {
         handleSerialCommand();
         lastSerialCheck = now;
+    }
+
+    // Button debug mode - show button status on display
+    if (buttonDebugMode) {
+        #ifdef ENABLE_BUTTON
+        int digitalVal = digitalRead(BUTTON_PIN);
+        int analogVal = analogRead(BUTTON_PIN);
+        bool pressed = digitalVal == HIGH;  // Assuming active-HIGH for capacitive touch
+
+        display.showButtonStatus(pressed, digitalVal, analogVal);
+        delay(50);  // Update frequently in debug mode
+        #endif
+        return;
     }
 
     // Handle button (if enabled)
@@ -273,6 +287,7 @@ void handleSerialCommand() {
         Serial.println("restart   - Reboot device");
         Serial.println("modules   - List available modules");
         Serial.println("switch    - Switch to next module");
+        Serial.println("button    - Toggle button debug mode (shows on display)");
         Serial.println("==========================\n");
     }
     else if (cmd == "config") {
@@ -335,6 +350,30 @@ void handleSerialCommand() {
     }
     else if (cmd == "switch") {
         cycleToNextModule();
+    }
+    else if (cmd == "button") {
+        if (buttonDebugMode) {
+            // Disable debug mode
+            buttonDebugMode = false;
+            Serial.println("\n=== Button Debug Mode DISABLED ===");
+            Serial.println("Returning to normal operation\n");
+        } else {
+            // Enable debug mode
+            buttonDebugMode = true;
+            Serial.println("\n=== Button Debug Mode ENABLED ===");
+            Serial.println("Watch the DISPLAY - it will show:");
+            Serial.println("- ON/OFF status (large text)");
+            Serial.println("- Digital value (0=LOW, 1=HIGH)");
+            Serial.println("- Analog value (0-4095)");
+            Serial.println();
+            Serial.println("Expected:");
+            Serial.println("- NOT touched: Should show 'OFF'");
+            Serial.println("- Touched: Should show 'ON'");
+            Serial.println("- Red LED: Indicates touch module is active");
+            Serial.println();
+            Serial.println("Type 'button' again to exit debug mode");
+            Serial.println("==================================\n");
+        }
     }
     else {
         Serial.print("Unknown command: ");

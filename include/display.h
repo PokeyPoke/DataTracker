@@ -46,6 +46,9 @@ public:
 
     // Generic module display
     void showModule(const char* moduleId);
+
+    // Button debug
+    void showButtonStatus(bool isPressed, int digitalValue, int analogValue);
 };
 
 #endif // DISPLAY_H
