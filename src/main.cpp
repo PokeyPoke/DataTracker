@@ -24,7 +24,7 @@ ButtonHandler button(BUTTON_PIN);
 
 // State management
 bool configMode = false;
-bool buttonDebugMode = true;  // Button debug mode - START ENABLED for testing
+bool buttonDebugMode = false;  // Button debug mode - disabled by default (use 'button' command to enable)
 unsigned long buttonDebugStartTime = 0;
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastSerialCheck = 0;
@@ -109,18 +109,6 @@ void setup() {
             network.startConfigAP();
             display.showConfigMode(network.getAPName().c_str());
         }
-    }
-
-    // Start button debug mode automatically for testing
-    if (buttonDebugMode) {
-        buttonDebugStartTime = millis();
-        Serial.println("\n*** BUTTON DEBUG MODE ACTIVE ***");
-        Serial.println("Watch the DISPLAY for button status!");
-        Serial.println("- Shows ON/OFF when button is pressed");
-        Serial.println("- Shows digital and analog values");
-        Serial.println("- Auto-disables after 30 seconds");
-        Serial.println("- Type 'button' to toggle manually");
-        Serial.println("*********************************\n");
     }
 
     Serial.println("\n=== Setup Complete ===");
