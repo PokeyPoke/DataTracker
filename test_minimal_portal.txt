@@ -1,0 +1,30 @@
+DIAGNOSTIC CHECKLIST
+====================
+
+When connected to DataTracker WiFi:
+
+1. Try http://192.168.4.1/
+   Result: _______________
+
+2. Try http://192.168.4.1/status  
+   Result: _______________
+
+3. Try http://192.168.4.1/scan
+   Result: _______________
+
+4. Can you ping 192.168.4.1?
+   Command: ping 192.168.4.1
+   Result: _______________
+
+5. What does the serial console show?
+   (from web flasher console button)
+   
+If ALL of these fail, it's likely:
+- Web server isn't starting
+- IP address is different
+- ESP32 is crashing
+
+If SOME work, it's likely:
+- DNS issue
+- Captive portal detection issue
+- HTML loading problem

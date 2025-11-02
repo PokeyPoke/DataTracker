@@ -1,0 +1,48 @@
+{
+  "wifi": {
+    "ssid": "YourWiFiNetwork",
+    "password": "YourWiFiPassword"
+  },
+  "device": {
+    "activeModule": "bitcoin",
+    "enableButton": true,
+    "refreshInterval": 300
+  },
+  "modules": {
+    "bitcoin": {
+      "value": 43250.67,
+      "change24h": 2.34,
+      "lastUpdate": 0,
+      "lastSuccess": false
+    },
+    "ethereum": {
+      "value": 2280.50,
+      "change24h": -1.25,
+      "lastUpdate": 0,
+      "lastSuccess": false
+    },
+    "stock": {
+      "ticker": "AAPL",
+      "value": 175.43,
+      "change": -0.75,
+      "lastUpdate": 0,
+      "lastSuccess": false
+    },
+    "weather": {
+      "latitude": 37.7749,
+      "longitude": -122.4194,
+      "location": "San Francisco",
+      "temperature": 18.5,
+      "condition": "Clear",
+      "lastUpdate": 0,
+      "lastSuccess": false
+    },
+    "custom": {
+      "value": 1234.56,
+      "label": "My Metric",
+      "unit": "units",
+      "lastUpdate": 0,
+      "lastSuccess": true
+    }
+  }
+}

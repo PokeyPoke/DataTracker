@@ -1,0 +1,83 @@
+name: Build Web Flasher Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install PlatformIO
+      run: |
+        pip install --upgrade platformio
+
+    - name: Build firmware
+      run: |
+        pio run
+
+    - name: Prepare web flasher binaries
+      run: |
+        mkdir -p docs/firmware
+
+        # Copy firmware
+        cp .pio/build/esp32-c3-devkitm-1/firmware.bin docs/firmware/
+        cp .pio/build/esp32-c3-devkitm-1/partitions.bin docs/firmware/
+
+        # Find and copy bootloader
+        BOOTLOADER=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "bootloader*.bin" -path "*/esp32c3/*" | grep -v "dio\|qio" | head -n 1)
+        if [ -n "$BOOTLOADER" ]; then
+          cp "$BOOTLOADER" docs/firmware/bootloader.bin
+        else
+          echo "Warning: Bootloader not found"
+        fi
+
+        # Find and copy boot_app0
+        BOOT_APP0=$(find ~/.platformio/packages/framework-arduinoespressif32 -name "boot_app0.bin" | head -n 1)
+        if [ -n "$BOOT_APP0" ]; then
+          cp "$BOOT_APP0" docs/firmware/boot_app0.bin
+        else
+          echo "Warning: boot_app0 not found"
+        fi
+
+    - name: Verify binaries
+      run: |
+        echo "Binary sizes:"
+        ls -lh docs/firmware/
+
+    - name: Create release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          docs/firmware/bootloader.bin
+          docs/firmware/partitions.bin
+          docs/firmware/boot_app0.bin
+          docs/firmware/firmware.bin
+        body: |
+          ## Web Flasher
+          Flash directly from browser: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/flash.html
+
+          ## Manual Flash
+          Or download the binaries above and flash manually using esptool.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Deploy to GitHub Pages
+      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        keep_files: false

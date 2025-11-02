@@ -1,0 +1,297 @@
+#include "display.h"
+#include "config.h"
+#include <WiFi.h>
+
+DisplayManager::DisplayManager()
+    : u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE), currentState(SPLASH) {
+}
+
+void DisplayManager::init() {
+    // Initialize I2C with custom pins if defined
+    #ifdef SDA_PIN
+    Wire.begin(SDA_PIN, SCL_PIN);
+    #endif
+
+    u8g2.begin();
+    u8g2.enableUTF8Print();
+    Serial.println("Display initialized");
+}
+
+void DisplayManager::clear() {
+    u8g2.clearBuffer();
+}
+
+void DisplayManager::drawCenteredText(const char* text, int y, const uint8_t* font) {
+    u8g2.setFont(font);
+    int width = u8g2.getStrWidth(text);
+    u8g2.drawStr((128 - width) / 2, y, text);
+}
+
+void DisplayManager::drawCenteredValue(const char* value, int y) {
+    u8g2.setFont(u8g2_font_logisoso24_tn);  // Large numeric font
+    int width = u8g2.getStrWidth(value);
+    u8g2.drawStr((128 - width) / 2, y, value);
+}
+
+void DisplayManager::drawHeader(const char* title) {
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    u8g2.drawStr(2, 10, title);
+}
+
+void DisplayManager::drawStatusBar(bool wifiConnected, unsigned long lastUpdate, bool isStale) {
+    u8g2.setFont(u8g2_font_6x10_tr);
+
+    // WiFi indicator
+    if (wifiConnected) {
+        u8g2.drawStr(2, 62, "W");  // WiFi connected
+    } else {
+        u8g2.drawStr(2, 62, "X");  // WiFi disconnected
+    }
+
+    // Timestamp
+    String timeAgo = getTimeAgo(lastUpdate);
+    u8g2.drawStr(15, 62, timeAgo.c_str());
+
+    // Stale indicator
+    if (isStale) {
+        u8g2.drawStr(115, 62, "!");
+    }
+}
+
+void DisplayManager::showSplash() {
+    u8g2.clearBuffer();
+
+    drawCenteredText("DATA TRACKER", 28, u8g2_font_helvB10_tr);
+    drawCenteredText("v1.0", 42, u8g2_font_6x10_tr);
+
+    u8g2.sendBuffer();
+    currentState = SPLASH;
+}
+
+void DisplayManager::showConnecting(const char* ssid) {
+    u8g2.clearBuffer();
+
+    drawCenteredText("CONNECTING", 25, u8g2_font_helvB08_tr);
+    drawCenteredText(ssid, 40, u8g2_font_6x10_tr);
+    drawCenteredText("Please wait...", 55, u8g2_font_6x10_tr);
+
+    u8g2.sendBuffer();
+    currentState = CONNECTING;
+}
+
+void DisplayManager::showConfigMode(const char* apName) {
+    u8g2.clearBuffer();
+
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    u8g2.drawStr(25, 15, "SETUP MODE");
+
+    u8g2.setFont(u8g2_font_6x10_tr);
+    u8g2.drawStr(5, 30, "1. Connect to WiFi:");
+    u8g2.drawStr(10, 42, apName);
+
+    u8g2.drawStr(5, 57, "2. Open browser");
+
+    u8g2.sendBuffer();
+    currentState = CONFIG_MODE;
+}
+
+void DisplayManager::showError(const char* message) {
+    u8g2.clearBuffer();
+
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    u8g2.drawStr(40, 20, "ERROR");
+
+    u8g2.setFont(u8g2_font_6x10_tr);
+    int width = u8g2.getStrWidth(message);
+    u8g2.drawStr((128 - width) / 2, 40, message);
+
+    u8g2.sendBuffer();
+    currentState = ERROR_STATE;
+}
+
+void DisplayManager::showBitcoin(float price, float change24h, unsigned long lastUpdate, bool stale) {
+    u8g2.clearBuffer();
+
+    // Header
+    drawHeader("BITCOIN");
+
+    // Price
+    char priceStr[16];
+    if (price >= 10000) {
+        snprintf(priceStr, sizeof(priceStr), "$%.0f", price);
+    } else if (price >= 1000) {
+        snprintf(priceStr, sizeof(priceStr), "$%.1f", price);
+    } else {
+        snprintf(priceStr, sizeof(priceStr), "$%.2f", price);
+    }
+    drawCenteredValue(priceStr, 38);
+
+    // Change percentage
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    char changeStr[20];
+    const char* arrow = (change24h >= 0) ? "^" : "v";
+    snprintf(changeStr, sizeof(changeStr), "%s %.1f%% (24h)", arrow, fabs(change24h));
+    int changeWidth = u8g2.getStrWidth(changeStr);
+    u8g2.drawStr((128 - changeWidth) / 2, 50, changeStr);
+
+    // Status bar
+    drawStatusBar(WiFi.isConnected(), lastUpdate, stale);
+
+    u8g2.sendBuffer();
+    currentState = NORMAL;
+}
+
+void DisplayManager::showEthereum(float price, float change24h, unsigned long lastUpdate, bool stale) {
+    u8g2.clearBuffer();
+
+    // Header
+    drawHeader("ETHEREUM");
+
+    // Price
+    char priceStr[16];
+    if (price >= 1000) {
+        snprintf(priceStr, sizeof(priceStr), "$%.0f", price);
+    } else {
+        snprintf(priceStr, sizeof(priceStr), "$%.2f", price);
+    }
+    drawCenteredValue(priceStr, 38);
+
+    // Change percentage
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    char changeStr[20];
+    const char* arrow = (change24h >= 0) ? "^" : "v";
+    snprintf(changeStr, sizeof(changeStr), "%s %.1f%% (24h)", arrow, fabs(change24h));
+    int changeWidth = u8g2.getStrWidth(changeStr);
+    u8g2.drawStr((128 - changeWidth) / 2, 50, changeStr);
+
+    // Status bar
+    drawStatusBar(WiFi.isConnected(), lastUpdate, stale);
+
+    u8g2.sendBuffer();
+    currentState = NORMAL;
+}
+
+void DisplayManager::showStock(const char* ticker, float price, float change, unsigned long lastUpdate, bool stale) {
+    u8g2.clearBuffer();
+
+    // Header with ticker
+    drawHeader(ticker);
+
+    // Price
+    char priceStr[16];
+    snprintf(priceStr, sizeof(priceStr), "$%.2f", price);
+    drawCenteredValue(priceStr, 38);
+
+    // Change percentage
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    char changeStr[20];
+    const char* arrow = (change >= 0) ? "^" : "v";
+    snprintf(changeStr, sizeof(changeStr), "%s %.1f%% (today)", arrow, fabs(change));
+    int changeWidth = u8g2.getStrWidth(changeStr);
+    u8g2.drawStr((128 - changeWidth) / 2, 50, changeStr);
+
+    // Status bar
+    drawStatusBar(WiFi.isConnected(), lastUpdate, stale);
+
+    u8g2.sendBuffer();
+    currentState = NORMAL;
+}
+
+void DisplayManager::showWeather(float temp, const char* condition, const char* location, unsigned long lastUpdate, bool stale) {
+    u8g2.clearBuffer();
+
+    // Header
+    drawHeader("WEATHER");
+
+    // Temperature
+    char tempStr[16];
+    snprintf(tempStr, sizeof(tempStr), "%.1f", temp);
+
+    u8g2.setFont(u8g2_font_logisoso24_tn);
+    int tempWidth = u8g2.getStrWidth(tempStr);
+    u8g2.drawStr((128 - tempWidth - 20) / 2, 35, tempStr);
+
+    // Degree symbol and C
+    u8g2.setFont(u8g2_font_helvB10_tr);
+    u8g2.drawStr((128 - tempWidth - 20) / 2 + tempWidth, 35, "C");
+    u8g2.drawCircle((128 - tempWidth - 20) / 2 + tempWidth - 3, 18, 2);
+
+    // Condition
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    int condWidth = u8g2.getStrWidth(condition);
+    u8g2.drawStr((128 - condWidth) / 2, 46, condition);
+
+    // Location
+    u8g2.setFont(u8g2_font_6x10_tr);
+    int locWidth = u8g2.getStrWidth(location);
+    u8g2.drawStr((128 - locWidth) / 2, 56, location);
+
+    // Status bar
+    drawStatusBar(WiFi.isConnected(), lastUpdate, stale);
+
+    u8g2.sendBuffer();
+    currentState = NORMAL;
+}
+
+void DisplayManager::showCustom(float value, const char* label, const char* unit, unsigned long lastUpdate) {
+    u8g2.clearBuffer();
+
+    // Header with label
+    drawHeader(label);
+
+    // Value
+    char valueStr[16];
+    snprintf(valueStr, sizeof(valueStr), "%.2f", value);
+    drawCenteredValue(valueStr, 38);
+
+    // Unit
+    if (strlen(unit) > 0) {
+        u8g2.setFont(u8g2_font_helvB08_tr);
+        int unitWidth = u8g2.getStrWidth(unit);
+        u8g2.drawStr((128 - unitWidth) / 2, 50, unit);
+    }
+
+    // Status bar (never stale for manual entry)
+    drawStatusBar(WiFi.isConnected(), lastUpdate, false);
+
+    u8g2.sendBuffer();
+    currentState = NORMAL;
+}
+
+void DisplayManager::showModule(const char* moduleId) {
+    JsonObject module = config["modules"][moduleId];
+    unsigned long lastUpdate = module["lastUpdate"] | 0;
+    bool stale = isCacheStale(moduleId);
+
+    if (strcmp(moduleId, "bitcoin") == 0) {
+        float price = module["value"] | 0.0;
+        float change = module["change24h"] | 0.0;
+        showBitcoin(price, change, lastUpdate, stale);
+    }
+    else if (strcmp(moduleId, "ethereum") == 0) {
+        float price = module["value"] | 0.0;
+        float change = module["change24h"] | 0.0;
+        showEthereum(price, change, lastUpdate, stale);
+    }
+    else if (strcmp(moduleId, "stock") == 0) {
+        const char* ticker = module["ticker"] | "STOCK";
+        float price = module["value"] | 0.0;
+        float change = module["change"] | 0.0;
+        showStock(ticker, price, change, lastUpdate, stale);
+    }
+    else if (strcmp(moduleId, "weather") == 0) {
+        float temp = module["temperature"] | 0.0;
+        const char* condition = module["condition"] | "Unknown";
+        const char* location = module["location"] | "Unknown";
+        showWeather(temp, condition, location, lastUpdate, stale);
+    }
+    else if (strcmp(moduleId, "custom") == 0) {
+        float value = module["value"] | 0.0;
+        const char* label = module["label"] | "CUSTOM";
+        const char* unit = module["unit"] | "";
+        showCustom(value, label, unit, lastUpdate);
+    }
+    else {
+        showError("Unknown module");
+    }
+}

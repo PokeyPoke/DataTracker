@@ -1,0 +1,344 @@
+#include <Arduino.h>
+#include "config.h"
+#include "display.h"
+#include "network.h"
+#include "scheduler.h"
+#include "button.h"
+#include "modules/module_interface.h"
+
+// Include all module implementations
+#include "modules/bitcoin_module.cpp"
+#include "modules/ethereum_module.cpp"
+#include "modules/stock_module.cpp"
+#include "modules/weather_module.cpp"
+#include "modules/custom_module.cpp"
+
+// Global objects
+DisplayManager display;
+NetworkManager network;
+Scheduler scheduler;
+
+#ifdef ENABLE_BUTTON
+ButtonHandler button(BUTTON_PIN);
+#endif
+
+// State management
+bool configMode = false;
+unsigned long lastDisplayUpdate = 0;
+unsigned long lastSerialCheck = 0;
+#define DISPLAY_UPDATE_INTERVAL 1000  // Update display every 1s
+#define SERIAL_CHECK_INTERVAL 100     // Check serial every 100ms
+
+// Function prototypes
+void handleButtonEvent(ButtonEvent event);
+void cycleToNextModule();
+void enterConfigMode();
+void confirmAndFactoryReset();
+void handleSerialCommand();
+
+void setup() {
+    Serial.begin(115200);
+    delay(1000);
+    Serial.println("\n\n=== ESP32-C3 Data Tracker v1.0 ===");
+    Serial.println("Initializing...\n");
+
+    // Initialize storage
+    if (!initStorage()) {
+        Serial.println("FATAL ERROR: Storage initialization failed");
+        while(1) {
+            delay(1000);
+        }
+    }
+
+    // Load configuration
+    loadConfiguration();
+
+    // Initialize display
+    display.init();
+    Serial.println("Display initialized");
+
+    // Initialize button (if enabled)
+    #ifdef ENABLE_BUTTON
+    if (config["device"]["enableButton"] | true) {
+        button.init();
+        Serial.println("Button support enabled");
+    }
+    #endif
+
+    // Setup WiFi
+    String ssid = config["wifi"]["ssid"] | "";
+    if (ssid.length() == 0) {
+        // No WiFi configured → Start AP mode
+        Serial.println("No WiFi configuration found");
+        Serial.println("Starting configuration AP mode...");
+        configMode = true;
+        network.startConfigAP();
+        display.showConfigMode(network.getAPName().c_str());
+    } else {
+        // Connect to WiFi
+        Serial.print("Connecting to WiFi: ");
+        Serial.println(ssid);
+        display.showConnecting(ssid.c_str());
+
+        if (network.connectWiFi(ssid.c_str(), config["wifi"]["password"])) {
+            Serial.println("WiFi connected successfully!");
+            configMode = false;
+
+            // Initialize scheduler and register modules
+            scheduler.init();
+            scheduler.registerModule(new BitcoinModule());
+            scheduler.registerModule(new EthereumModule());
+            scheduler.registerModule(new StockModule());
+            scheduler.registerModule(new WeatherModule());
+            scheduler.registerModule(new CustomModule());
+
+            Serial.println("All modules registered");
+
+            // Force initial fetch of active module
+            String activeModule = config["device"]["activeModule"] | "bitcoin";
+            Serial.print("Active module: ");
+            Serial.println(activeModule);
+            scheduler.requestFetch(activeModule.c_str(), true);
+        } else {
+            Serial.println("WiFi connection failed");
+            Serial.println("Starting configuration AP mode...");
+            configMode = true;
+            network.startConfigAP();
+            display.showConfigMode(network.getAPName().c_str());
+        }
+    }
+
+    Serial.println("\n=== Setup Complete ===");
+    Serial.println("Type 'help' for available commands\n");
+}
+
+void loop() {
+    unsigned long now = millis();
+
+    // Handle config mode
+    if (configMode) {
+        network.handleClient();
+        return;
+    }
+
+    // Check serial commands
+    if (now - lastSerialCheck > SERIAL_CHECK_INTERVAL) {
+        handleSerialCommand();
+        lastSerialCheck = now;
+    }
+
+    // Handle button (if enabled)
+    #ifdef ENABLE_BUTTON
+    if (config["device"]["enableButton"] | true) {
+        ButtonEvent event = button.check();
+        if (event != NONE) {
+            handleButtonEvent(event);
+        }
+    }
+    #endif
+
+    // Monitor WiFi connection
+    if (!network.isConnected()) {
+        network.reconnect();
+    }
+
+    // Run scheduler (fetch data if needed)
+    scheduler.tick();
+
+    // Update display
+    if (now - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL) {
+        String activeModule = config["device"]["activeModule"] | "bitcoin";
+        display.showModule(activeModule.c_str());
+        lastDisplayUpdate = now;
+    }
+
+    // Small delay to prevent watchdog
+    delay(10);
+}
+
+void handleButtonEvent(ButtonEvent event) {
+    switch (event) {
+        case SHORT_PRESS:
+            cycleToNextModule();
+            break;
+
+        case LONG_PRESS:
+            enterConfigMode();
+            break;
+
+        case FACTORY_RESET:
+            confirmAndFactoryReset();
+            break;
+
+        default:
+            break;
+    }
+}
+
+void cycleToNextModule() {
+    // Available modules
+    const char* modules[] = {"bitcoin", "ethereum", "stock", "weather", "custom"};
+    const int moduleCount = 5;
+
+    // Find current module index
+    String currentModule = config["device"]["activeModule"] | "bitcoin";
+    int currentIndex = -1;
+    for (int i = 0; i < moduleCount; i++) {
+        if (currentModule == modules[i]) {
+            currentIndex = i;
+            break;
+        }
+    }
+
+    // Cycle to next (with wraparound)
+    int nextIndex = (currentIndex + 1) % moduleCount;
+    String nextModule = modules[nextIndex];
+
+    Serial.print("Cycling from ");
+    Serial.print(currentModule);
+    Serial.print(" to ");
+    Serial.println(nextModule);
+
+    config["device"]["activeModule"] = nextModule;
+
+    // Show cached value immediately
+    display.showModule(nextModule.c_str());
+
+    // Schedule fetch if cache is stale
+    scheduler.requestFetch(nextModule.c_str(), false);
+
+    // Save active module to config (throttled)
+    saveConfiguration();
+}
+
+void enterConfigMode() {
+    Serial.println("Entering configuration mode...");
+
+    // Show confirmation on display
+    display.clear();
+    display.showError("Entering Setup");
+    delay(2000);
+
+    // Clear WiFi config to force AP mode
+    config["wifi"]["ssid"] = "";
+    saveConfiguration();
+
+    delay(1000);
+    ESP.restart();
+}
+
+void confirmAndFactoryReset() {
+    Serial.println("FACTORY RESET INITIATED");
+
+    // Show countdown
+    for (int i = 3; i > 0; i--) {
+        Serial.print("Resetting in ");
+        Serial.print(i);
+        Serial.println("...");
+
+        char msg[20];
+        snprintf(msg, sizeof(msg), "Reset in %d", i);
+        display.showError(msg);
+        delay(1000);
+    }
+
+    // Perform factory reset
+    Serial.println("Formatting filesystem...");
+    LittleFS.format();
+
+    display.showError("Reset Complete");
+    delay(2000);
+
+    Serial.println("Restarting...");
+    ESP.restart();
+}
+
+void handleSerialCommand() {
+    if (!Serial.available()) return;
+
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    cmd.toLowerCase();
+
+    if (cmd.length() == 0) return;
+
+    if (cmd == "help") {
+        Serial.println("\n=== Available Commands ===");
+        Serial.println("help      - Show this help message");
+        Serial.println("config    - Show current configuration");
+        Serial.println("wifi      - Show WiFi status");
+        Serial.println("fetch     - Force fetch now");
+        Serial.println("cache     - Show all cached values");
+        Serial.println("reset     - Factory reset");
+        Serial.println("restart   - Reboot device");
+        Serial.println("modules   - List available modules");
+        Serial.println("switch    - Switch to next module");
+        Serial.println("==========================\n");
+    }
+    else if (cmd == "config") {
+        Serial.println("\n=== Current Configuration ===");
+        serializeJsonPretty(config, Serial);
+        Serial.println("\n=============================\n");
+    }
+    else if (cmd == "wifi") {
+        Serial.println("\n=== WiFi Status ===");
+        if (network.isConnected()) {
+            Serial.print("Status: CONNECTED\n");
+            Serial.print("SSID: ");
+            Serial.println(WiFi.SSID());
+            Serial.print("IP: ");
+            Serial.println(WiFi.localIP());
+            Serial.print("RSSI: ");
+            Serial.print(WiFi.RSSI());
+            Serial.println(" dBm");
+        } else {
+            Serial.println("Status: DISCONNECTED");
+        }
+        Serial.println("===================\n");
+    }
+    else if (cmd == "fetch") {
+        String activeModule = config["device"]["activeModule"] | "bitcoin";
+        Serial.print("Forcing fetch for: ");
+        Serial.println(activeModule);
+        scheduler.requestFetch(activeModule.c_str(), true);
+    }
+    else if (cmd == "cache") {
+        Serial.println("\n=== Cached Module Data ===");
+        JsonObject modules = config["modules"];
+        for (JsonPair kv : modules) {
+            Serial.print(kv.key().c_str());
+            Serial.print(": ");
+            serializeJson(kv.value(), Serial);
+            Serial.println();
+        }
+        Serial.println("==========================\n");
+    }
+    else if (cmd == "reset") {
+        Serial.println("\nFactory reset in 3 seconds...");
+        Serial.println("Press Ctrl+C to cancel\n");
+        delay(3000);
+        confirmAndFactoryReset();
+    }
+    else if (cmd == "restart") {
+        Serial.println("\nRestarting device...\n");
+        delay(500);
+        ESP.restart();
+    }
+    else if (cmd == "modules") {
+        Serial.println("\n=== Available Modules ===");
+        Serial.println("1. bitcoin  - Bitcoin Price (BTC/USD)");
+        Serial.println("2. ethereum - Ethereum Price (ETH/USD)");
+        Serial.println("3. stock    - Stock Price (configurable)");
+        Serial.println("4. weather  - Weather Data (configurable)");
+        Serial.println("5. custom   - Custom Number (manual entry)");
+        Serial.println("=========================\n");
+    }
+    else if (cmd == "switch") {
+        cycleToNextModule();
+    }
+    else {
+        Serial.print("Unknown command: ");
+        Serial.println(cmd);
+        Serial.println("Type 'help' for available commands");
+    }
+}

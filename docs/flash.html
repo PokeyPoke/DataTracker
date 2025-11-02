@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-C3 Data Tracker - Web Flasher</title>
+    <meta name="description" content="Flash the ESP32-C3 Data Tracker firmware directly from your browser">
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --danger-color: #f44336;
+            --text-color: #333;
+            --bg-color: #f5f5f5;
+            --card-bg: #ffffff;
+            --shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: var(--text-color);
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: "📌";
+            font-size: 1.2em;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid var(--secondary-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .success-box {
+            background: #e8f5e9;
+            border-left: 4px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .step-list {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+
+        .step-list li {
+            counter-increment: step-counter;
+            margin: 15px 0;
+            padding-left: 40px;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .step-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: var(--primary-color);
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .flash-section {
+            background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .flash-section h3 {
+            margin-bottom: 20px;
+            color: var(--text-color);
+            font-size: 1.3em;
+        }
+
+        esp-web-install-button {
+            margin: 10px;
+        }
+
+        esp-web-install-button[install-unsupported] {
+            display: none;
+        }
+
+        .browser-support {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+        }
+
+        .browser-support h4 {
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .browser-icons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .browser-icons img {
+            width: 48px;
+            height: 48px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .feature-card .icon {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .feature-card h4 {
+            color: var(--text-color);
+            margin-bottom: 8px;
+        }
+
+        .feature-card p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer a {
+            color: var(--secondary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .content {
+                padding: 30px 20px;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .unsupported-msg {
+            display: none;
+            background: #ffebee;
+            border: 2px solid var(--danger-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .unsupported-msg h3 {
+            color: var(--danger-color);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 ESP32-C3 Data Tracker</h1>
+            <p>Flash firmware directly from your browser - no software installation required!</p>
+        </div>
+
+        <div class="content">
+            <div class="section">
+                <h2>What is this?</h2>
+                <p>This web-based tool allows you to flash the Data Tracker firmware to your ESP32-C3 device using just your web browser. No need to install PlatformIO, Arduino IDE, or any drivers!</p>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="icon">⚡</div>
+                        <h4>Quick Flash</h4>
+                        <p>Flash firmware in under 2 minutes</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon">🔄</div>
+                        <h4>Factory Reset</h4>
+                        <p>Erase everything and start fresh</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="icon">🌐</div>
+                        <h4>No Install</h4>
+                        <p>Works directly in your browser</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Before You Start</h2>
+                <div class="warning-box">
+                    <strong>⚠️ Important:</strong> This tool requires:
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>Chrome 89+ or Edge 89+ browser</li>
+                        <li>ESP32-C3 connected via USB cable</li>
+                        <li>USB data cable (not just charging cable)</li>
+                    </ul>
+                </div>
+
+                <ol class="step-list">
+                    <li><strong>Connect your ESP32-C3</strong> to your computer via USB-C cable</li>
+                    <li><strong>Use a supported browser</strong> (Chrome or Edge - see below)</li>
+                    <li><strong>Click the install button</strong> below and follow the prompts</li>
+                    <li><strong>Wait for completion</strong> (takes about 1-2 minutes)</li>
+                    <li><strong>Configure via WiFi</strong> after flashing (connect to DataTracker-XXXX)</li>
+                </ol>
+            </div>
+
+            <div class="flash-section">
+                <h3>🚀 Flash Firmware</h3>
+
+                <div class="info-box">
+                    <strong>Choose an option:</strong><br>
+                    <strong>Install Firmware:</strong> Flash fresh firmware (keeps existing config if present)<br>
+                    <strong>Factory Reset:</strong> Erase everything including WiFi settings and start fresh
+                </div>
+
+                <!-- Install button -->
+                <esp-web-install-button
+                    manifest="manifest.json"
+                    install-supported>
+                    <button slot="activate" style="
+                        background: var(--primary-color);
+                        color: white;
+                        border: none;
+                        padding: 15px 40px;
+                        font-size: 1.1em;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+                        transition: all 0.3s ease;
+                    ">
+                        📥 Install Firmware
+                    </button>
+                </esp-web-install-button>
+
+                <!-- Erase + Install button -->
+                <esp-web-install-button
+                    manifest="manifest.json"
+                    erase-first
+                    install-supported>
+                    <button slot="activate" style="
+                        background: var(--danger-color);
+                        color: white;
+                        border: none;
+                        padding: 15px 40px;
+                        font-size: 1.1em;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-weight: 600;
+                        box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+                        transition: all 0.3s ease;
+                    ">
+                        🔄 Factory Reset & Install
+                    </button>
+                </esp-web-install-button>
+
+                <div class="unsupported-msg" id="unsupported">
+                    <h3>❌ Browser Not Supported</h3>
+                    <p>Your browser doesn't support Web Serial API. Please use Chrome 89+ or Edge 89+</p>
+                </div>
+
+                <div class="browser-support">
+                    <h4>✅ Supported Browsers:</h4>
+                    <div class="browser-icons">
+                        <div>
+                            <img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/chrome/chrome_48x48.png" alt="Chrome">
+                            <p style="margin-top: 5px; font-size: 0.9em;">Chrome 89+</p>
+                        </div>
+                        <div>
+                            <img src="https://raw.githubusercontent.com/alrra/browser-logos/master/src/edge/edge_48x48.png" alt="Edge">
+                            <p style="margin-top: 5px; font-size: 0.9em;">Edge 89+</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>After Flashing</h2>
+                <div class="success-box">
+                    <strong>✅ Success! What's next?</strong>
+                    <ol class="step-list" style="margin-top: 15px;">
+                        <li>Disconnect and reconnect the USB cable</li>
+                        <li>Look for WiFi network: <strong>DataTracker-XXXX</strong></li>
+                        <li>Connect to it with your phone or computer</li>
+                        <li>Browser should auto-open setup page (or go to 192.168.4.1)</li>
+                        <li>Configure WiFi and select your metric</li>
+                        <li>Save and enjoy your data tracker!</li>
+                    </ol>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Troubleshooting</h2>
+                <details style="margin: 10px 0; cursor: pointer;">
+                    <summary style="font-weight: 600; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        ❓ Port not showing up
+                    </summary>
+                    <div style="padding: 15px; background: white; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 4px 4px;">
+                        <ul style="margin-left: 20px; line-height: 1.8;">
+                            <li>Try a different USB cable (must be data cable, not charge-only)</li>
+                            <li>Try a different USB port on your computer</li>
+                            <li>Make sure device is powered on</li>
+                            <li>On Windows, install CH340 or CP2102 drivers if needed</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details style="margin: 10px 0; cursor: pointer;">
+                    <summary style="font-weight: 600; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        ❓ Flash failed / Connection error
+                    </summary>
+                    <div style="padding: 15px; background: white; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 4px 4px;">
+                        <ul style="margin-left: 20px; line-height: 1.8;">
+                            <li>Close any other programs using the serial port (Arduino IDE, PlatformIO, etc.)</li>
+                            <li>Try holding the BOOT button while connecting USB</li>
+                            <li>Try the "Factory Reset & Install" option instead</li>
+                            <li>Restart your browser and try again</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details style="margin: 10px 0; cursor: pointer;">
+                    <summary style="font-weight: 600; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        ❓ Device not creating WiFi network after flash
+                    </summary>
+                    <div style="padding: 15px; background: white; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 4px 4px;">
+                        <ul style="margin-left: 20px; line-height: 1.8;">
+                            <li>Wait 30 seconds after flashing before disconnecting</li>
+                            <li>Disconnect and reconnect USB to restart device</li>
+                            <li>Try the "Factory Reset & Install" to clear old config</li>
+                            <li>Check display - should show "SETUP MODE" instructions</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details style="margin: 10px 0; cursor: pointer;">
+                    <summary style="font-weight: 600; padding: 10px; background: #f5f5f5; border-radius: 4px;">
+                        ❓ Need more help?
+                    </summary>
+                    <div style="padding: 15px; background: white; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 4px 4px;">
+                        <p style="line-height: 1.8;">
+                            Check the full <a href="https://github.com/yourusername/DataTracker/blob/main/TROUBLESHOOTING.md" target="_blank">Troubleshooting Guide</a><br>
+                            Or open an issue on <a href="https://github.com/yourusername/DataTracker/issues" target="_blank">GitHub</a>
+                        </p>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                <a href="https://github.com/yourusername/DataTracker" target="_blank">📖 Documentation</a> •
+                <a href="https://github.com/yourusername/DataTracker/issues" target="_blank">🐛 Report Issue</a> •
+                <a href="https://github.com/yourusername/DataTracker" target="_blank">⭐ Star on GitHub</a>
+            </p>
+            <p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+                ESP32-C3 Data Tracker v1.0 • Built with ❤️ for makers
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Check if browser supports Web Serial API
+        if (!navigator.serial) {
+            document.getElementById('unsupported').style.display = 'block';
+            document.querySelectorAll('esp-web-install-button').forEach(el => {
+                el.style.display = 'none';
+            });
+        }
+
+        // Add hover effects to buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('button').forEach(button => {
+                button.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+                });
+                button.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+#ifndef DISPLAY_H
+#define DISPLAY_H
+
+#include <Arduino.h>
+#include <U8g2lib.h>
+#include <Wire.h>
+
+// Display states
+enum DisplayState {
+    SPLASH,       // Boot logo
+    CONNECTING,   // "Connecting to WiFi..."
+    CONFIG_MODE,  // "Setup: DataTracker-XXXX"
+    NORMAL,       // Showing metric data
+    ERROR_STATE   // Error message display
+};
+
+class DisplayManager {
+private:
+    U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2;
+    DisplayState currentState;
+
+    // Helper drawing functions
+    void drawCenteredText(const char* text, int y, const uint8_t* font);
+    void drawCenteredValue(const char* value, int y);
+    void drawStatusBar(bool wifiConnected, unsigned long lastUpdate, bool isStale);
+    void drawHeader(const char* title);
+
+public:
+    DisplayManager();
+
+    void init();
+    void clear();
+
+    // State-specific display functions
+    void showSplash();
+    void showConnecting(const char* ssid);
+    void showConfigMode(const char* apName);
+    void showError(const char* message);
+
+    // Module-specific display functions
+    void showBitcoin(float price, float change24h, unsigned long lastUpdate, bool stale);
+    void showEthereum(float price, float change24h, unsigned long lastUpdate, bool stale);
+    void showStock(const char* ticker, float price, float change, unsigned long lastUpdate, bool stale);
+    void showWeather(float temp, const char* condition, const char* location, unsigned long lastUpdate, bool stale);
+    void showCustom(float value, const char* label, const char* unit, unsigned long lastUpdate);
+
+    // Generic module display
+    void showModule(const char* moduleId);
+};
+
+#endif // DISPLAY_H
