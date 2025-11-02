@@ -9,6 +9,9 @@
 #define LONG_PRESS_MIN 3000        // ms
 #define FACTORY_RESET_MIN 10000    // ms
 
+// Capacitive touch settings
+#define TOUCH_THRESHOLD_RATIO 0.7  // 70% of baseline is considered a touch
+
 // Button events
 enum ButtonEvent {
     NONE,
@@ -25,8 +28,16 @@ private:
     unsigned long lastDebounceTime;
     bool isPressed;
 
+    // Capacitive touch
+    uint16_t touchBaseline;
+    uint16_t touchThreshold;
+    bool useCapacitiveTouch;
+
+    bool isTouched();
+    void calibrateTouch();
+
 public:
-    ButtonHandler(uint8_t buttonPin);
+    ButtonHandler(uint8_t buttonPin, bool capacitiveTouch = true);
 
     void init();
     ButtonEvent check();

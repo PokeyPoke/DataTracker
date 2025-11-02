@@ -1,19 +1,68 @@
 #include "button.h"
 
-ButtonHandler::ButtonHandler(uint8_t buttonPin)
-    : pin(buttonPin), lastState(HIGH), pressStartTime(0),
-      lastDebounceTime(0), isPressed(false) {
+ButtonHandler::ButtonHandler(uint8_t buttonPin, bool capacitiveTouch)
+    : pin(buttonPin), lastState(false), pressStartTime(0),
+      lastDebounceTime(0), isPressed(false), touchBaseline(0),
+      touchThreshold(0), useCapacitiveTouch(capacitiveTouch) {
 }
 
 void ButtonHandler::init() {
-    pinMode(pin, INPUT_PULLUP);
-    lastState = digitalRead(pin);
-    Serial.print("Button initialized on pin ");
-    Serial.println(pin);
+    if (useCapacitiveTouch) {
+        // External capacitive touch module (e.g., TTP223)
+        // These modules output HIGH when touched, LOW when not touched
+        pinMode(pin, INPUT);
+        Serial.print("Initializing capacitive touch module on GPIO");
+        Serial.println(pin);
+
+        // Calibrate to detect initial state
+        calibrateTouch();
+
+        Serial.print("Touch sensor ready (active ");
+        Serial.print(touchBaseline > 512 ? "HIGH" : "LOW");
+        Serial.println(")");
+    } else {
+        // Regular button with pull-up (LOW when pressed)
+        pinMode(pin, INPUT_PULLUP);
+        lastState = digitalRead(pin) == LOW;
+        Serial.print("Regular button initialized on GPIO");
+        Serial.println(pin);
+    }
+}
+
+void ButtonHandler::calibrateTouch() {
+    // For external capacitive touch modules (ESP32-C3 doesn't have built-in touch)
+    // Read the initial state to determine active HIGH or LOW
+    delay(100); // Let sensor stabilize
+
+    uint32_t sum = 0;
+    const int samples = 10;
+
+    for (int i = 0; i < samples; i++) {
+        sum += analogRead(pin);
+        delay(10);
+    }
+
+    touchBaseline = sum / samples;
+
+    // Most capacitive touch modules output HIGH (3.3V) when touched
+    // Set threshold at midpoint (1.65V ~ 2048 for 12-bit ADC)
+    touchThreshold = 2048;
+}
+
+bool ButtonHandler::isTouched() {
+    if (!useCapacitiveTouch) {
+        // Regular button: LOW when pressed (pull-up)
+        return digitalRead(pin) == LOW;
+    }
+
+    // External capacitive touch module
+    // Most modules output HIGH when touched
+    // Using digital read for clean signal
+    return digitalRead(pin) == HIGH;
 }
 
 ButtonEvent ButtonHandler::check() {
-    bool currentState = digitalRead(pin);
+    bool currentState = isTouched();
     unsigned long now = millis();
 
     // Debounce
@@ -22,15 +71,15 @@ ButtonEvent ButtonHandler::check() {
     }
 
     if ((now - lastDebounceTime) > DEBOUNCE_DELAY) {
-        // Button pressed (LOW due to pull-up)
-        if (currentState == LOW && !isPressed) {
+        // Button pressed
+        if (currentState && !isPressed) {
             isPressed = true;
             pressStartTime = now;
-            Serial.println("Button pressed");
+            Serial.println("Button touched");
         }
 
         // Button released
-        if (currentState == HIGH && isPressed) {
+        if (!currentState && isPressed) {
             isPressed = false;
             unsigned long pressDuration = now - pressStartTime;
 
@@ -42,10 +91,10 @@ ButtonEvent ButtonHandler::check() {
                 Serial.println("Factory reset triggered");
                 return FACTORY_RESET;
             } else if (pressDuration >= LONG_PRESS_MIN) {
-                Serial.println("Long press triggered");
+                Serial.println("Long press triggered (config mode)");
                 return LONG_PRESS;
             } else if (pressDuration >= DEBOUNCE_DELAY && pressDuration < SHORT_PRESS_MAX) {
-                Serial.println("Short press triggered");
+                Serial.println("Short press triggered (cycle module)");
                 return SHORT_PRESS;
             }
         }
