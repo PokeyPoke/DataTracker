@@ -37,6 +37,7 @@ private:
     void handleValidateCode();
     void handleGetConfig();
     void handleUpdateConfig();
+    void handleRestart();
     void handleFactoryReset();
 
     // WiFi scanning

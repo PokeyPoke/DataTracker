@@ -33,7 +33,7 @@ public:
         return true;
     }
 
-    bool parseResponse(String payload, String& errorMsg) override {
+    bool parseResponse(String payload, String& errorMsg) {
         // Not applicable for settings module
         return true;
     }
