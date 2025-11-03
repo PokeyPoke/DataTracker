@@ -64,7 +64,7 @@ label{display:block;margin-top:15px;font-weight:bold}h2{text-align:center}
 <option value="stock">Stock</option><option value="weather">Weather</option>
 <option value="custom">Custom</option><option value="settings">Settings</option></select>
 <label>Stock Ticker:</label><input type="text" id="stockTicker" placeholder="AAPL" maxlength="10">
-<label>Weather Location:</label><input type="text" id="weatherLoc" placeholder="City name or lat,lon">
+<label>Weather Location:</label><input type="text" id="weatherLoc" placeholder="lat,lon (e.g. 37.7749,-122.4194)">
 <label>Custom Label:</label><input type="text" id="customLabel" placeholder="Label" maxlength="20">
 <label>Custom Value:</label><input type="number" id="customValue" step="0.01">
 <label>Custom Unit:</label><input type="text" id="customUnit" placeholder="Unit" maxlength="10">
