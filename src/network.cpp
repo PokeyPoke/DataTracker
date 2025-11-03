@@ -39,7 +39,7 @@ fetch('/scan').then(r=>r.json()).then(n=>{var s=document.getElementById('ssid');
 </script></body></html>)rawliteral";
 
 NetworkManager::NetworkManager()
-    : server(nullptr), isAPMode(false), lastReconnectAttempt(0),
+    : server(nullptr), isAPMode(false), isSettingsMode(false), lastReconnectAttempt(0),
       cachedScanResults("[]"), lastScanTime(0), scanInProgress(false),
       clientWasConnected(false) {
 }
@@ -371,4 +371,99 @@ void NetworkManager::updateScanResults() {
         Serial.println("Scan complete");
         WiFi.scanDelete();
     }
+}
+
+// ============================================
+// Settings Server (for normal operation mode)
+// ============================================
+
+void NetworkManager::startSettingsServer() {
+    if (server || isAPMode) {
+        Serial.println("Cannot start settings server: server already running or in AP mode");
+        return;
+    }
+
+    Serial.println("\n=== Starting Settings Server ===");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.localIP());
+
+    isSettingsMode = true;
+    setupSettingsServer();
+
+    Serial.println("Settings server started");
+    Serial.println("================================\n");
+}
+
+void NetworkManager::stopSettingsServer() {
+    if (server && isSettingsMode) {
+        delete server;
+        server = nullptr;
+        isSettingsMode = false;
+        Serial.println("Settings server stopped");
+    }
+}
+
+bool NetworkManager::isSettingsServerRunning() {
+    return isSettingsMode && (server != nullptr);
+}
+
+String NetworkManager::getLocalIP() {
+    if (WiFi.status() == WL_CONNECTED) {
+        return WiFi.localIP().toString();
+    }
+    return "0.0.0.0";
+}
+
+void NetworkManager::setupSettingsServer() {
+    server = new WebServer(80);
+
+    // Settings page root
+    server->on("/", [this]() {
+        handleSettingsRoot();
+    });
+
+    // API endpoints
+    server->on("/api/validate", HTTP_POST, [this]() {
+        handleValidateCode();
+    });
+
+    server->on("/api/config", HTTP_GET, [this]() {
+        handleGetConfig();
+    });
+
+    server->on("/api/config", HTTP_POST, [this]() {
+        handleUpdateConfig();
+    });
+
+    server->on("/api/factory-reset", HTTP_POST, [this]() {
+        handleFactoryReset();
+    });
+
+    server->begin();
+}
+
+// Stub handlers - will be implemented in Phase 3
+void NetworkManager::handleSettingsRoot() {
+    // TODO: Serve full HTML page
+    server->send(200, "text/html", "<html><body><h1>Settings Page - Coming in Phase 3!</h1></body></html>");
+}
+
+void NetworkManager::handleValidateCode() {
+    // TODO: Validate security code and create session
+    server->send(200, "application/json", "{\"valid\":false}");
+}
+
+void NetworkManager::handleGetConfig() {
+    // TODO: Return current configuration as JSON
+    server->send(200, "application/json", "{\"error\":\"Not implemented yet\"}");
+}
+
+void NetworkManager::handleUpdateConfig() {
+    // TODO: Update configuration and save
+    server->send(200, "application/json", "{\"success\":false}");
+}
+
+void NetworkManager::handleFactoryReset() {
+    // TODO: Perform factory reset
+    server->send(200, "application/json", "{\"success\":false}");
 }
