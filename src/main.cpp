@@ -32,7 +32,9 @@ bool buttonDebugMode = false;  // Button debug mode - disabled by default (use '
 unsigned long buttonDebugStartTime = 0;
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastSerialCheck = 0;
+String lastDisplayedModule = "";  // Track which module is currently shown
 #define DISPLAY_UPDATE_INTERVAL 1000  // Update display every 1s
+#define SETTINGS_UPDATE_INTERVAL 5000 // Update settings display every 5s (reduce flicker)
 #define SERIAL_CHECK_INTERVAL 100     // Check serial every 100ms
 #define BUTTON_DEBUG_DURATION 30000   // Auto-disable after 30 seconds
 #define QR_UPDATE_INTERVAL 500        // Check for client connection every 500ms
@@ -204,9 +206,19 @@ void loop() {
     scheduler.tick();
 
     // Update display
-    if (now - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL) {
-        String activeModule = config["device"]["activeModule"] | "bitcoin";
+    String activeModule = config["device"]["activeModule"] | "bitcoin";
+    bool moduleChanged = (activeModule != lastDisplayedModule);
+
+    // Determine update interval based on module type
+    unsigned long updateInterval = DISPLAY_UPDATE_INTERVAL;
+    if (activeModule == "settings") {
+        updateInterval = SETTINGS_UPDATE_INTERVAL;  // Slower updates for QR code
+    }
+
+    // Only redraw if module changed or interval elapsed
+    if (moduleChanged || (now - lastDisplayUpdate > updateInterval)) {
         display.showModule(activeModule.c_str());
+        lastDisplayedModule = activeModule;
         lastDisplayUpdate = now;
     }
 
@@ -261,6 +273,8 @@ void cycleToNextModule() {
 
     // Show cached value immediately
     display.showModule(nextModule.c_str());
+    lastDisplayedModule = nextModule;  // Update tracker to prevent immediate redraw
+    lastDisplayUpdate = millis();      // Reset timer
 
     // Schedule fetch if cache is stale
     scheduler.requestFetch(nextModule.c_str(), false);
