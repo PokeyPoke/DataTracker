@@ -48,7 +48,8 @@ void handleSerialCommand();
 void setup() {
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n\n=== ESP32-C3 Data Tracker v1.0 ===");
+    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.0.1 ===");
+    Serial.println("Build: Settings Module Edition - Nov 3 2024");
     Serial.println("Initializing...\n");
 
     // Initialize storage
@@ -251,6 +252,15 @@ void cycleToNextModule() {
     const char* modules[] = {"bitcoin", "settings", "ethereum", "stock", "weather", "custom"};
     const int moduleCount = 6;
 
+    Serial.print("DEBUG: Total modules available: ");
+    Serial.println(moduleCount);
+    Serial.print("DEBUG: Module array: ");
+    for (int i = 0; i < moduleCount; i++) {
+        Serial.print(modules[i]);
+        if (i < moduleCount - 1) Serial.print(", ");
+    }
+    Serial.println();
+
     // Find current module index
     String currentModule = config["device"]["activeModule"] | "bitcoin";
     int currentIndex = -1;
@@ -261,10 +271,15 @@ void cycleToNextModule() {
         }
     }
 
+    Serial.print("DEBUG: Current index: ");
+    Serial.println(currentIndex);
+
     // Cycle to next (with wraparound)
     int nextIndex = (currentIndex + 1) % moduleCount;
     String nextModule = modules[nextIndex];
 
+    Serial.print("DEBUG: Next index: ");
+    Serial.println(nextIndex);
     Serial.print("Cycling from ");
     Serial.print(currentModule);
     Serial.print(" to ");
