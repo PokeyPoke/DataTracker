@@ -295,6 +295,12 @@ void DisplayManager::showModule(const char* moduleId) {
         uint32_t code = module["securityCode"] | 0;
         unsigned long timeRemaining = module["codeTimeRemaining"] | 0;
         String ip = WiFi.localIP().toString();
+
+        Serial.print("Showing settings module - Code: ");
+        Serial.print(code);
+        Serial.print(", IP: ");
+        Serial.println(ip);
+
         showSettings(code, ip.c_str(), timeRemaining);
     }
     else {

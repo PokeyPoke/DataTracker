@@ -272,13 +272,20 @@ void cycleToNextModule() {
 
     config["device"]["activeModule"] = nextModule;
 
+    // For settings module, force immediate fetch to generate security code
+    if (nextModule == "settings") {
+        scheduler.requestFetch(nextModule.c_str(), true);  // Force immediate fetch
+    }
+
     // Show cached value immediately
     display.showModule(nextModule.c_str());
     lastDisplayedModule = nextModule;  // Update tracker to prevent immediate redraw
     lastDisplayUpdate = millis();      // Reset timer
 
-    // Schedule fetch if cache is stale
-    scheduler.requestFetch(nextModule.c_str(), false);
+    // Schedule fetch if cache is stale (for non-settings modules)
+    if (nextModule != "settings") {
+        scheduler.requestFetch(nextModule.c_str(), false);
+    }
 
     // Save active module to config (throttled)
     saveConfiguration();
