@@ -62,8 +62,8 @@ void DisplayManager::showSplash() {
     u8g2.clearBuffer();
 
     drawCenteredText("DATA TRACKER", 28, u8g2_font_helvB10_tr);
-    drawCenteredText("v2.0.1", 42, u8g2_font_6x10_tr);
-    drawCenteredText("Settings+", 54, u8g2_font_5x7_tr);
+    drawCenteredText("v2.2.0", 42, u8g2_font_6x10_tr);
+    drawCenteredText("Crypto Search", 54, u8g2_font_5x7_tr);
 
     u8g2.sendBuffer();
     currentState = SPLASH;
@@ -448,6 +448,42 @@ void DisplayManager::showSettings(uint32_t securityCode, const char* deviceIP, u
 
     // Note: Removed time countdown to prevent display flickering
     // QR codes need to be completely static for scanning
+
+    u8g2.sendBuffer();
+}
+
+void DisplayManager::showModuleLoading(const char* moduleName, int progress) {
+    u8g2.clearBuffer();
+
+    // Module name at top
+    drawHeader(moduleName);
+
+    // "Loading..." text
+    u8g2.setFont(u8g2_font_helvB08_tr);
+    int textWidth = u8g2.getStrWidth("Loading...");
+    u8g2.drawStr((128 - textWidth) / 2, 30, "Loading...");
+
+    // Progress bar
+    int barWidth = 100;
+    int barHeight = 12;
+    int barX = (128 - barWidth) / 2;
+    int barY = 38;
+
+    // Draw progress bar outline
+    u8g2.drawFrame(barX, barY, barWidth, barHeight);
+
+    // Fill progress bar
+    int fillWidth = (barWidth - 4) * progress / 100;
+    if (fillWidth > 0) {
+        u8g2.drawBox(barX + 2, barY + 2, fillWidth, barHeight - 4);
+    }
+
+    // Progress percentage
+    u8g2.setFont(u8g2_font_6x10_tr);
+    char percentStr[8];
+    snprintf(percentStr, sizeof(percentStr), "%d%%", progress);
+    int percentWidth = u8g2.getStrWidth(percentStr);
+    u8g2.drawStr((128 - percentWidth) / 2, 60, percentStr);
 
     u8g2.sendBuffer();
 }

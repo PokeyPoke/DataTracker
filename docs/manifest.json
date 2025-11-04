@@ -1,6 +1,6 @@
 {
   "name": "ESP32-C3 Data Tracker",
-  "version": "2.0.1-debug",
+  "version": "2.2.0-crypto-search",
   "home_assistant_domain": "esphome",
   "new_install_prompt_erase": true,
   "builds": [

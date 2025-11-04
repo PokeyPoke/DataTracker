@@ -46,6 +46,7 @@ public:
     void requestFetch(const char* moduleId, bool forced = false);
 
     SchedulerState getState() { return context.state; }
+    String getCurrentModule() { return context.currentModule; }
 };
 
 #endif // SCHEDULER_H

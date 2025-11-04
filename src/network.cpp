@@ -53,57 +53,113 @@ button:hover{background:#45a049}.danger{background:#f44336}.danger:hover{backgro
 .code-input{font-size:24px;text-align:center;letter-spacing:10px}
 .error{color:#f44336;margin:10px 0}.success{color:#4CAF50;margin:10px 0}
 label{display:block;margin-top:15px;font-weight:bold}h2{text-align:center}
-.timer{text-align:center;color:#666;font-size:14px}</style></head><body>
+.timer{text-align:center;color:#666;font-size:14px}
+.search-container{position:relative}.search-results{border:1px solid #ddd;max-height:200px;overflow-y:auto;margin-top:5px;display:none}
+.search-item{padding:10px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center}
+.search-item:hover{background:#f5f5f5}.search-item img{width:24px;height:24px;margin-right:10px}
+.current-value{font-size:14px;color:#666;margin-top:5px}</style></head><body>
 <div id="login-view"><h2>DataTracker Settings</h2><p>Enter code from device display:</p>
 <input type="text" id="code" class="code-input" maxlength="6" placeholder="000000" pattern="[0-9]{6}">
 <button onclick="validateCode()">Unlock Settings</button><div id="error" class="error"></div>
 <p class="timer" id="timer"></p></div>
 <div id="settings-view" class="hidden"><h2>Settings</h2>
+<div style="text-align:right;margin-bottom:10px"><button onclick="logout()" style="width:auto;padding:8px 16px;font-size:12px">Logout</button></div>
 <label>Active Module:</label><select id="activeModule">
-<option value="bitcoin">Bitcoin</option><option value="ethereum">Ethereum</option>
+<option value="bitcoin">Crypto 1</option><option value="ethereum">Crypto 2</option>
 <option value="stock">Stock</option><option value="weather">Weather</option>
 <option value="custom">Custom</option><option value="settings">Settings</option></select>
+<label>Crypto 1 (Bitcoin Module):</label>
+<div class="search-container">
+<input type="text" id="btcSearch" placeholder="Search cryptocurrency..." oninput="searchCrypto('bitcoin',this.value)">
+<div id="btcResults" class="search-results"></div>
+<div id="btcCurrent" class="current-value"></div>
+</div>
+<label>Crypto 2 (Ethereum Module):</label>
+<div class="search-container">
+<input type="text" id="ethSearch" placeholder="Search cryptocurrency..." oninput="searchCrypto('ethereum',this.value)">
+<div id="ethResults" class="search-results"></div>
+<div id="ethCurrent" class="current-value"></div>
+</div>
 <label>Stock Ticker:</label><input type="text" id="stockTicker" placeholder="AAPL" maxlength="10">
 <label>Weather Location:</label><input type="text" id="weatherLoc" placeholder="lat,lon (e.g. 37.7749,-122.4194)">
 <label>Custom Label:</label><input type="text" id="customLabel" placeholder="Label" maxlength="20">
 <label>Custom Value:</label><input type="number" id="customValue" step="0.01">
 <label>Custom Unit:</label><input type="text" id="customUnit" placeholder="Unit" maxlength="10">
+<div id="msg" style="margin:15px 0;padding:12px;border-radius:4px;text-align:center;font-weight:bold;display:none"></div>
 <button onclick="saveSettings()">Save Changes</button>
 <button onclick="restartDevice()" class="danger">Restart Device</button>
 <button onclick="factoryReset()" class="danger">Factory Reset</button>
-<div id="msg"></div></div>
-<script>var token='';
+</div>
+<script>var token='';var searchTimeouts={};
 function validateCode(){var c=document.getElementById('code').value;
 if(c.length!=6){showError('Enter 6-digit code');return;}
 fetch('/api/validate',{method:'POST',body:JSON.stringify({code:parseInt(c)})})
-.then(r=>r.json()).then(d=>{if(d.valid){token=d.token;localStorage.setItem('token',token);
+.then(r=>r.json()).then(d=>{if(d.valid){token=d.token;
 showSettings();}else{showError(d.error||'Invalid code');}}).catch(()=>showError('Connection error'));}
 function showSettings(){document.getElementById('login-view').className='hidden';
 document.getElementById('settings-view').className='';loadConfig();}
+function logout(){localStorage.removeItem('token');token='';
+document.getElementById('settings-view').className='hidden';
+document.getElementById('login-view').className='';
+document.getElementById('code').value='';
+document.getElementById('error').innerText='';}
+function handleUnauthorized(){logout();showError('Session expired. Please enter the code from your device.');}
 function loadConfig(){fetch('/api/config',{headers:{'Authorization':token}})
-.then(r=>r.json()).then(d=>{document.getElementById('activeModule').value=d.device.activeModule||'bitcoin';
+.then(r=>{if(r.status===401){handleUnauthorized();return null;}if(!r.ok){throw new Error('Failed to load config');}return r.json();})
+.then(d=>{if(!d)return;document.getElementById('activeModule').value=d.device.activeModule||'bitcoin';
 document.getElementById('stockTicker').value=d.modules.stock.ticker||'';
 document.getElementById('weatherLoc').value=d.modules.weather.location||'';
 document.getElementById('customLabel').value=d.modules.custom.label||'';
 document.getElementById('customValue').value=d.modules.custom.value||0;
-document.getElementById('customUnit').value=d.modules.custom.unit||'';}).catch(()=>showError('Failed to load'));}
+document.getElementById('customUnit').value=d.modules.custom.unit||'';
+window.bitcoin_config={cryptoId:d.modules.bitcoin.cryptoId||'bitcoin',cryptoSymbol:d.modules.bitcoin.cryptoSymbol||'BTC',cryptoName:d.modules.bitcoin.cryptoName||'Bitcoin'};
+window.ethereum_config={cryptoId:d.modules.ethereum.cryptoId||'ethereum',cryptoSymbol:d.modules.ethereum.cryptoSymbol||'ETH',cryptoName:d.modules.ethereum.cryptoName||'Ethereum'};
+updateCryptoDisplay('bitcoin',d.modules.bitcoin);updateCryptoDisplay('ethereum',d.modules.ethereum);})
+.catch(e=>{console.error('Load config error:',e);showMsg('Failed to load settings. Please try again.','error');});}
+function updateCryptoDisplay(module,data){var prefix=module==='bitcoin'?'btc':'eth';
+var cur=document.getElementById(prefix+'Current');
+if(data.cryptoName){cur.innerHTML='Current: '+data.cryptoName+' ('+data.cryptoSymbol.toUpperCase()+')';}else{cur.innerHTML='Current: '+(module==='bitcoin'?'Bitcoin (BTC)':'Ethereum (ETH)');}}
+function searchCrypto(module,query){clearTimeout(searchTimeouts[module]);
+if(query.length<2){hideResults(module);return;}
+var prefix=module==='bitcoin'?'btc':'eth';
+var results=document.getElementById(prefix+'Results');
+results.innerHTML='<div class="search-item">Searching...</div>';
+results.style.display='block';
+searchTimeouts[module]=setTimeout(()=>{
+fetch('https://api.coingecko.com/api/v3/search?query='+encodeURIComponent(query))
+.then(r=>r.json()).then(d=>{var html='';
+d.coins.slice(0,5).forEach(coin=>{html+='<div class="search-item" onclick="selectCrypto(\''+module+'\',\''+coin.id+'\',\''+coin.symbol+'\',\''+coin.name.replace(/'/g,"\\'")+'\')">';
+if(coin.thumb){html+='<img src="'+coin.thumb+'">';}
+html+=coin.name+' ('+coin.symbol.toUpperCase()+')</div>';});
+results.innerHTML=html||'<div class="search-item">No results</div>';}).catch(()=>{results.innerHTML='<div class="search-item">Error searching</div>';});},300);}
+function hideResults(module){var prefix=module==='bitcoin'?'btc':'eth';
+setTimeout(()=>{document.getElementById(prefix+'Results').style.display='none';},200);}
+function selectCrypto(module,id,symbol,name){var prefix=module==='bitcoin'?'btc':'eth';
+window[module+'_config']={cryptoId:id,cryptoSymbol:symbol,cryptoName:name};
+document.getElementById(prefix+'Search').value='';
+hideResults(module);updateCryptoDisplay(module,{cryptoName:name,cryptoSymbol:symbol});}
 function saveSettings(){var cfg={device:{activeModule:document.getElementById('activeModule').value},
-modules:{stock:{ticker:document.getElementById('stockTicker').value},
+modules:{bitcoin:window.bitcoin_config||{},ethereum:window.ethereum_config||{},
+stock:{ticker:document.getElementById('stockTicker').value},
 weather:{location:document.getElementById('weatherLoc').value},
-custom:{label:document.getElementById('customLabel').value,value:parseFloat(document.getElementById('customValue').value),
+custom:{label:document.getElementById('customLabel').value,value:parseFloat(document.getElementById('customValue').value)||0,
 unit:document.getElementById('customUnit').value}}};
+console.log('Saving config:',cfg);
 fetch('/api/config',{method:'POST',headers:{'Authorization':token},body:JSON.stringify(cfg)})
-.then(r=>r.json()).then(d=>{if(d.success){showMsg('Saved!','success');}else{showMsg('Save failed','error');}})
-.catch(()=>showMsg('Error','error'));}
+.then(r=>{if(r.status===401){handleUnauthorized();return null;}return r.json();})
+.then(d=>{if(!d)return;console.log('Save response:',d);if(d.success){showMsg('Settings Saved Successfully!','success');}else{showMsg('Save failed: '+(d.error||'Unknown error'),'error');}})
+.catch(e=>{console.error('Save error:',e);showMsg('Connection error','error');});}
 function restartDevice(){if(confirm('Restart device?')){fetch('/api/restart',{method:'POST',headers:{'Authorization':token}})
-.then(()=>showMsg('Restarting...','success'));}}
+.then(r=>{if(r.status===401){handleUnauthorized();return;}showMsg('Restarting...','success');});}}
 function factoryReset(){if(confirm('Factory reset? This will erase all settings!')){
 fetch('/api/factory-reset',{method:'POST',headers:{'Authorization':token}})
-.then(()=>showMsg('Resetting...','success'));}}
+.then(r=>{if(r.status===401){handleUnauthorized();return;}showMsg('Resetting...','success');});}}
 function showError(msg){document.getElementById('error').innerText=msg;}
 function showMsg(msg,type){var el=document.getElementById('msg');el.innerText=msg;
-el.className=type;setTimeout(()=>el.innerText='',3000);}
-var t=localStorage.getItem('token');if(t){token=t;showSettings();}</script></body></html>)rawliteral";
+el.style.display='block';
+if(type==='success'){el.style.background='#4CAF50';el.style.color='#fff';}else{el.style.background='#f44336';el.style.color='#fff';}
+setTimeout(()=>{el.style.display='none';el.innerText='';},3000);}
+localStorage.removeItem('token');</script></body></html>)rawliteral";
 
 NetworkManager::NetworkManager()
     : server(nullptr), isAPMode(false), isSettingsMode(false), lastReconnectAttempt(0),
@@ -588,11 +644,14 @@ void NetworkManager::handleUpdateConfig() {
     }
 
     String body = server->arg("plain");
-    StaticJsonDocument<1024> doc;
+    StaticJsonDocument<2048> doc;
     DeserializationError error = deserializeJson(doc, body);
 
     if (error) {
-        server->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+        String errorMsg = "{\"success\":false,\"error\":\"Invalid JSON: ";
+        errorMsg += error.c_str();
+        errorMsg += "\"}";
+        server->send(400, "application/json", errorMsg);
         return;
     }
 
@@ -605,6 +664,32 @@ void NetworkManager::handleUpdateConfig() {
 
     if (doc.containsKey("modules")) {
         JsonObject modules = doc["modules"];
+
+        // Update bitcoin crypto config
+        if (modules.containsKey("bitcoin")) {
+            if (modules["bitcoin"].containsKey("cryptoId")) {
+                config["modules"]["bitcoin"]["cryptoId"] = modules["bitcoin"]["cryptoId"].as<String>();
+            }
+            if (modules["bitcoin"].containsKey("cryptoSymbol")) {
+                config["modules"]["bitcoin"]["cryptoSymbol"] = modules["bitcoin"]["cryptoSymbol"].as<String>();
+            }
+            if (modules["bitcoin"].containsKey("cryptoName")) {
+                config["modules"]["bitcoin"]["cryptoName"] = modules["bitcoin"]["cryptoName"].as<String>();
+            }
+        }
+
+        // Update ethereum crypto config
+        if (modules.containsKey("ethereum")) {
+            if (modules["ethereum"].containsKey("cryptoId")) {
+                config["modules"]["ethereum"]["cryptoId"] = modules["ethereum"]["cryptoId"].as<String>();
+            }
+            if (modules["ethereum"].containsKey("cryptoSymbol")) {
+                config["modules"]["ethereum"]["cryptoSymbol"] = modules["ethereum"]["cryptoSymbol"].as<String>();
+            }
+            if (modules["ethereum"].containsKey("cryptoName")) {
+                config["modules"]["ethereum"]["cryptoName"] = modules["ethereum"]["cryptoName"].as<String>();
+            }
+        }
 
         // Update stock config
         if (modules.containsKey("stock") && modules["stock"].containsKey("ticker")) {

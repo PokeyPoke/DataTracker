@@ -10,23 +10,29 @@ class BitcoinModule : public ModuleInterface {
 public:
     BitcoinModule() {
         id = "bitcoin";
-        displayName = "BTC/USD";
+        displayName = "Crypto 1";  // Generic name, actual symbol shown in formatDisplay()
         defaultRefreshInterval = 300;  // 5 minutes
         minRefreshInterval = 60;       // 1 minute
     }
 
     bool fetch(String& errorMsg) override {
-        const char* url = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd&include_24hr_change=true";
+        // Get configured crypto ID (default to bitcoin)
+        JsonObject moduleData = config["modules"]["bitcoin"];
+        String cryptoId = moduleData["cryptoId"] | "bitcoin";
+
+        // Build URL with configured crypto
+        String url = "https://api.coingecko.com/api/v3/simple/price?ids=" + cryptoId +
+                     "&vs_currencies=usd&include_24hr_change=true";
 
         String response;
-        if (!network.httpGet(url, response, errorMsg)) {
+        if (!network.httpGet(url.c_str(), response, errorMsg)) {
             return false;
         }
 
-        return parseResponse(response, errorMsg);
+        return parseResponse(response, errorMsg, cryptoId);
     }
 
-    bool parseResponse(String payload, String& errorMsg) {
+    bool parseResponse(String payload, String& errorMsg, String cryptoId) {
         StaticJsonDocument<512> doc;
         DeserializationError error = deserializeJson(doc, payload);
 
@@ -35,13 +41,13 @@ public:
             return false;
         }
 
-        if (!doc.containsKey("bitcoin")) {
+        if (!doc.containsKey(cryptoId)) {
             errorMsg = "Invalid response structure";
             return false;
         }
 
-        float price = doc["bitcoin"]["usd"];
-        float change = doc["bitcoin"]["usd_24h_change"];
+        float price = doc[cryptoId]["usd"];
+        float change = doc[cryptoId]["usd_24h_change"];
 
         // Update cache
         JsonObject data = config["modules"]["bitcoin"].to<JsonObject>();
@@ -50,7 +56,9 @@ public:
         data["lastUpdate"] = millis() / 1000;
         data["lastSuccess"] = true;
 
-        Serial.print("Bitcoin price: $");
+        String cryptoName = data["cryptoName"] | "Bitcoin";
+        Serial.print(cryptoName);
+        Serial.print(" price: $");
         Serial.print(price, 2);
         Serial.print(" (");
         Serial.print(change, 2);

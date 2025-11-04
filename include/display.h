@@ -64,6 +64,9 @@ public:
 
     // Settings module
     void showSettings(uint32_t securityCode, const char* deviceIP, unsigned long timeRemaining);
+
+    // Loading state with progress bar
+    void showModuleLoading(const char* moduleName, int progress);
 };
 
 #endif // DISPLAY_H

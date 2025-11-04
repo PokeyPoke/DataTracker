@@ -9,23 +9,29 @@ class EthereumModule : public ModuleInterface {
 public:
     EthereumModule() {
         id = "ethereum";
-        displayName = "ETH/USD";
+        displayName = "Crypto 2";  // Generic name, actual symbol shown in formatDisplay()
         defaultRefreshInterval = 300;  // 5 minutes
         minRefreshInterval = 60;       // 1 minute
     }
 
     bool fetch(String& errorMsg) override {
-        const char* url = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true";
+        // Get configured crypto ID (default to ethereum)
+        JsonObject moduleData = config["modules"]["ethereum"];
+        String cryptoId = moduleData["cryptoId"] | "ethereum";
+
+        // Build URL with configured crypto
+        String url = "https://api.coingecko.com/api/v3/simple/price?ids=" + cryptoId +
+                     "&vs_currencies=usd&include_24hr_change=true";
 
         String response;
-        if (!network.httpGet(url, response, errorMsg)) {
+        if (!network.httpGet(url.c_str(), response, errorMsg)) {
             return false;
         }
 
-        return parseResponse(response, errorMsg);
+        return parseResponse(response, errorMsg, cryptoId);
     }
 
-    bool parseResponse(String payload, String& errorMsg) {
+    bool parseResponse(String payload, String& errorMsg, String cryptoId) {
         StaticJsonDocument<512> doc;
         DeserializationError error = deserializeJson(doc, payload);
 
@@ -34,13 +40,13 @@ public:
             return false;
         }
 
-        if (!doc.containsKey("ethereum")) {
+        if (!doc.containsKey(cryptoId)) {
             errorMsg = "Invalid response structure";
             return false;
         }
 
-        float price = doc["ethereum"]["usd"];
-        float change = doc["ethereum"]["usd_24h_change"];
+        float price = doc[cryptoId]["usd"];
+        float change = doc[cryptoId]["usd_24h_change"];
 
         // Update cache
         JsonObject data = config["modules"]["ethereum"].to<JsonObject>();
@@ -49,7 +55,9 @@ public:
         data["lastUpdate"] = millis() / 1000;
         data["lastSuccess"] = true;
 
-        Serial.print("Ethereum price: $");
+        String cryptoName = data["cryptoName"] | "Ethereum";
+        Serial.print(cryptoName);
+        Serial.print(" price: $");
         Serial.print(price, 2);
         Serial.print(" (");
         Serial.print(change, 2);
