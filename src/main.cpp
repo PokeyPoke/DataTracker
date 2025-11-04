@@ -48,8 +48,8 @@ void handleSerialCommand();
 void setup() {
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.2.1 ===");
-    Serial.println("Build: Crypto Fixed Edition - Nov 3 2024");
+    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.2.2 ===");
+    Serial.println("Build: Display Debug Edition - Nov 3 2024");
     Serial.println("Initializing...\n");
 
     // Initialize storage
@@ -293,6 +293,7 @@ void cycleToNextModule() {
     // For settings module, force immediate fetch to generate security code
     if (nextModule == "settings") {
         scheduler.requestFetch(nextModule.c_str(), true);  // Force immediate fetch
+        delay(100);  // Brief delay to let fetch complete before display
     }
 
     // Show cached value immediately
