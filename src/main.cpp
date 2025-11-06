@@ -32,11 +32,13 @@ bool buttonDebugMode = false;  // Button debug mode - disabled by default (use '
 unsigned long buttonDebugStartTime = 0;
 unsigned long lastDisplayUpdate = 0;
 unsigned long lastSerialCheck = 0;
+unsigned long lastSettingsCodeRefresh = 0;
 String lastDisplayedModule = "";  // Track which module is currently shown
 #define DISPLAY_UPDATE_INTERVAL 1000  // Update display every 1s
 #define SERIAL_CHECK_INTERVAL 100     // Check serial every 100ms
 #define BUTTON_DEBUG_DURATION 30000   // Auto-disable after 30 seconds
 #define QR_UPDATE_INTERVAL 500        // Check for client connection every 500ms
+#define SETTINGS_CODE_REFRESH 30000   // Refresh security code every 30s
 
 // Function prototypes
 void handleButtonEvent(ButtonEvent event);
@@ -48,8 +50,8 @@ void handleSerialCommand();
 void setup() {
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.2.2 ===");
-    Serial.println("Build: Display Debug Edition - Nov 3 2024");
+    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.3.0 ===");
+    Serial.println("Build: Persistence Fix Edition - Nov 3 2024");
     Serial.println("Initializing...\n");
 
     // Initialize storage
@@ -212,19 +214,31 @@ void loop() {
     String activeModule = config["device"]["activeModule"] | "bitcoin";
     bool moduleChanged = (activeModule != lastDisplayedModule);
 
-    // Settings module: only update when first shown (QR codes must be static)
-    // Other modules: update every 1 second for real-time data
-    bool shouldUpdate = false;
+    // Settings module: refresh security code every 30 seconds
     if (activeModule == "settings") {
-        shouldUpdate = moduleChanged;  // Only when switching to settings
+        if (moduleChanged) {
+            // First time showing settings - generate code immediately
+            scheduler.requestFetch("settings", true);
+            lastSettingsCodeRefresh = now;
+            display.showModule(activeModule.c_str());
+            lastDisplayedModule = activeModule;
+            lastDisplayUpdate = now;
+        } else if (now - lastSettingsCodeRefresh > SETTINGS_CODE_REFRESH) {
+            // Refresh code every 30 seconds while on settings screen
+            Serial.println("Refreshing security code (30s interval)");
+            scheduler.requestFetch("settings", true);
+            lastSettingsCodeRefresh = now;
+            display.showModule(activeModule.c_str());
+            lastDisplayUpdate = now;
+        }
     } else {
-        shouldUpdate = moduleChanged || (now - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL);
-    }
-
-    if (shouldUpdate) {
-        display.showModule(activeModule.c_str());
-        lastDisplayedModule = activeModule;
-        lastDisplayUpdate = now;
+        // Other modules: update every 1 second for real-time data
+        bool shouldUpdate = moduleChanged || (now - lastDisplayUpdate > DISPLAY_UPDATE_INTERVAL);
+        if (shouldUpdate) {
+            display.showModule(activeModule.c_str());
+            lastDisplayedModule = activeModule;
+            lastDisplayUpdate = now;
+        }
     }
 
     // Small delay to prevent watchdog
@@ -290,16 +304,8 @@ void cycleToNextModule() {
 
     config["device"]["activeModule"] = nextModule;
 
-    // For settings module, force immediate fetch to generate security code
-    if (nextModule == "settings") {
-        scheduler.requestFetch(nextModule.c_str(), true);  // Force immediate fetch
-        delay(100);  // Brief delay to let fetch complete before display
-    }
-
-    // Show cached value immediately
-    display.showModule(nextModule.c_str());
-    lastDisplayedModule = nextModule;  // Update tracker to prevent immediate redraw
-    lastDisplayUpdate = millis();      // Reset timer
+    // Note: Settings code generation is now handled in main loop
+    // Display will be updated automatically on next loop iteration
 
     // Schedule fetch if cache is stale (for non-settings modules)
     if (nextModule != "settings") {

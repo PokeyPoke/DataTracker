@@ -677,12 +677,20 @@ void NetworkManager::handleUpdateConfig() {
                     cryptoChanged = true;
                 }
                 config["modules"]["bitcoin"]["cryptoId"] = newId;
+                Serial.print("Bitcoin cryptoId updated to: ");
+                Serial.println(newId);
             }
             if (modules["bitcoin"].containsKey("cryptoSymbol")) {
-                config["modules"]["bitcoin"]["cryptoSymbol"] = modules["bitcoin"]["cryptoSymbol"].as<String>();
+                String symbol = modules["bitcoin"]["cryptoSymbol"].as<String>();
+                config["modules"]["bitcoin"]["cryptoSymbol"] = symbol;
+                Serial.print("Bitcoin cryptoSymbol updated to: ");
+                Serial.println(symbol);
             }
             if (modules["bitcoin"].containsKey("cryptoName")) {
-                config["modules"]["bitcoin"]["cryptoName"] = modules["bitcoin"]["cryptoName"].as<String>();
+                String name = modules["bitcoin"]["cryptoName"].as<String>();
+                config["modules"]["bitcoin"]["cryptoName"] = name;
+                Serial.print("Bitcoin cryptoName updated to: ");
+                Serial.println(name);
             }
             // Clear cached data if crypto changed
             if (cryptoChanged) {
@@ -743,7 +751,7 @@ void NetworkManager::handleUpdateConfig() {
         }
     }
 
-    // Save to file
+    // Save to file FIRST before triggering fetches
     saveConfiguration();
 
     // Trigger forced fetches for modules that changed

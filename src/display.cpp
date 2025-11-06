@@ -62,8 +62,8 @@ void DisplayManager::showSplash() {
     u8g2.clearBuffer();
 
     drawCenteredText("DATA TRACKER", 28, u8g2_font_helvB10_tr);
-    drawCenteredText("v2.2.2", 42, u8g2_font_6x10_tr);
-    drawCenteredText("Display Debug", 54, u8g2_font_5x7_tr);
+    drawCenteredText("v2.3.0", 42, u8g2_font_6x10_tr);
+    drawCenteredText("Persistence", 54, u8g2_font_5x7_tr);
 
     u8g2.sendBuffer();
     currentState = SPLASH;
