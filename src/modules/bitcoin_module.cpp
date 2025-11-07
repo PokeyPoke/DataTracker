@@ -49,8 +49,8 @@ public:
         float price = doc[cryptoId]["usd"];
         float change = doc[cryptoId]["usd_24h_change"];
 
-        // Update cache
-        JsonObject data = config["modules"]["bitcoin"].to<JsonObject>();
+        // Update cache (preserve existing fields like cryptoId/cryptoSymbol/cryptoName)
+        JsonObject data = config["modules"]["bitcoin"];
         data["value"] = price;
         data["change24h"] = change;
         data["lastUpdate"] = millis() / 1000;
