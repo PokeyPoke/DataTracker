@@ -154,7 +154,7 @@ hideResults(module);updateCryptoDisplay(module,{cryptoName:name,cryptoSymbol:sym
 function updateStockDisplay(data){var cur=document.getElementById('stockCurrent');
 if(data.name){cur.innerHTML='Current: '+data.name+' ('+data.ticker+')';}else{cur.innerHTML='Current: Apple Inc. (AAPL)';}}
 function searchStock(query){clearTimeout(searchTimeouts['stock']);
-query=query.toUpperCase().trim();
+query=query.trim();
 if(query.length<1){document.getElementById('stockResults').style.display='none';return;}
 var results=document.getElementById('stockResults');
 results.innerHTML='<div class="search-item">Searching...</div>';
@@ -165,7 +165,12 @@ fetch('https://query2.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent
 if(d.quotes&&d.quotes.length>0){d.quotes.filter(q=>q.quoteType==='EQUITY'||q.quoteType==='ETF').slice(0,5).forEach(q=>{
 html+='<div class="search-item" onclick="selectStock(\''+q.symbol.replace(/'/g,"\\'")+'\',\''+(q.shortname||q.longname||q.symbol).replace(/'/g,"\\'")+'\')">';
 html+=(q.shortname||q.longname||q.symbol)+' ('+q.symbol+')</div>';});}
-results.innerHTML=html||'<div class="search-item">No results. Try ticker directly (e.g. AAPL)</div>';}).catch(e=>{console.error('Stock search error:',e);results.innerHTML='<div class="search-item">Search unavailable. Enter ticker directly (e.g. AAPL)</div>';});},300);}
+if(!html){html='<div class="search-item" onclick="selectStock(\''+query.toUpperCase().replace(/'/g,"\\'")+'\',\''+query.toUpperCase().replace(/'/g,"\\'")+'\')">';
+html+='Use "'+query.toUpperCase()+'" as ticker symbol</div>';}
+results.innerHTML=html;}).catch(e=>{console.error('Stock search error:',e);
+var ticker=query.toUpperCase();
+results.innerHTML='<div class="search-item" onclick="selectStock(\''+ticker.replace(/'/g,"\\'")+'\',\''+ticker.replace(/'/g,"\\'")+'\')">';
+results.innerHTML+='Search unavailable. Use "'+ticker+'" as ticker</div>';});},300);}
 function selectStock(ticker,name){window.stock_config={ticker:ticker.toUpperCase(),name:name};
 document.getElementById('stockSearch').value='';
 setTimeout(()=>{document.getElementById('stockResults').style.display='none';},200);
@@ -197,7 +202,7 @@ weather:window.weather_config||{location:'San Francisco',latitude:37.7749,longit
 custom:{label:document.getElementById('customLabel').value,value:parseFloat(document.getElementById('customValue').value)||0,
 unit:document.getElementById('customUnit').value}}};
 console.log('Saving config:',cfg);
-fetch('/api/config',{method:'POST',headers:{'Authorization':token},body:JSON.stringify(cfg)})
+fetch('/api/config',{method:'POST',headers:{'Authorization':token,'Content-Type':'application/json;charset=utf-8'},body:JSON.stringify(cfg)})
 .then(r=>{if(r.status===401){handleUnauthorized();return null;}return r.json();})
 .then(d=>{if(!d)return;console.log('Save response:',d);if(d.success){showMsg('Settings Saved Successfully!','success');}else{showMsg('Save failed: '+(d.error||'Unknown error'),'error');}})
 .catch(e=>{console.error('Save error:',e);showMsg('Connection error','error');});}
@@ -626,7 +631,7 @@ void NetworkManager::setupSettingsServer() {
         html += "td,th{border:1px solid #666;padding:8px 12px;text-align:left}";
         html += "th{background:#2d2d2d}</style></head><body>";
         html += "<h2>Crypto Module Configuration</h2>";
-        html += "<p style='color:#888'>v2.6.1 - Search Fix | Auto-refreshes every 3 seconds</p>";
+        html += "<p style='color:#888'>v2.6.2 - Search & UTF-8 Fix | Auto-refreshes every 3 seconds</p>";
         html += "<table><tr><th>Module</th><th>Field</th><th>Value</th></tr>";
 
         // Bitcoin module
@@ -841,7 +846,15 @@ void NetworkManager::handleUpdateConfig() {
         // Update weather config
         if (modules.containsKey("weather")) {
             if (modules["weather"].containsKey("location")) {
-                config["modules"]["weather"]["location"] = modules["weather"]["location"].as<String>();
+                String location = modules["weather"]["location"].as<String>();
+                config["modules"]["weather"]["location"] = location;
+                Serial.print("Weather location updated to: ");
+                Serial.println(location);
+                Serial.print("Location bytes: ");
+                for (size_t i = 0; i < location.length(); i++) {
+                    Serial.printf("%02X ", (uint8_t)location[i]);
+                }
+                Serial.println();
             }
             if (modules["weather"].containsKey("latitude")) {
                 config["modules"]["weather"]["latitude"] = modules["weather"]["latitude"].as<float>();
