@@ -160,7 +160,7 @@ var results=document.getElementById('stockResults');
 results.innerHTML='<div class="search-item">Searching...</div>';
 results.style.display='block';
 searchTimeouts['stock']=setTimeout(()=>{
-fetch('https://query2.finance.yahoo.com/v1/finance/search?q='+encodeURIComponent(query)+'&quotesCount=10&newsCount=0')
+fetch('/api/stock-search?q='+encodeURIComponent(query))
 .then(r=>r.ok?r.json():Promise.reject('API error')).then(d=>{var html='';
 if(d.quotes&&d.quotes.length>0){d.quotes.filter(q=>q.quoteType==='EQUITY'||q.quoteType==='ETF').slice(0,5).forEach(q=>{
 html+='<div class="search-item" onclick="selectStock(\''+q.symbol.replace(/'/g,"\\'")+'\',\''+(q.shortname||q.longname||q.symbol).replace(/'/g,"\\'")+'\')">';
@@ -191,7 +191,7 @@ html+=city.name+(city.admin1?', '+city.admin1:'')+(city.country?' ('+city.countr
 results.innerHTML=html||'<div class="search-item">No results</div>';}).catch(()=>{results.innerHTML='<div class="search-item">Error searching</div>';});},300);}
 function selectWeather(location,lat,lon,country){
 var fullLocation=location+(country?' ('+country+')':'');
-window.weather_config={location:fullLocation,lat:parseFloat(lat),lon:parseFloat(lon)};
+window.weather_config={location:encodeURIComponent(fullLocation),lat:parseFloat(lat),lon:parseFloat(lon)};
 document.getElementById('weatherSearch').value='';
 setTimeout(()=>{document.getElementById('weatherResults').style.display='none';},200);
 updateWeatherDisplay({location:fullLocation,latitude:lat,longitude:lon});}
@@ -623,6 +623,11 @@ void NetworkManager::setupSettingsServer() {
         handleFactoryReset();
     });
 
+    // Stock search proxy (no auth required) - bypasses CORS
+    server->on("/api/stock-search", HTTP_GET, [this]() {
+        handleStockSearch();
+    });
+
     // Debug endpoint (no auth required) - shows crypto module config only
     server->on("/debug", [this]() {
         String html = "<!DOCTYPE html><html><head><title>Debug Config</title>";
@@ -631,7 +636,7 @@ void NetworkManager::setupSettingsServer() {
         html += "td,th{border:1px solid #666;padding:8px 12px;text-align:left}";
         html += "th{background:#2d2d2d}</style></head><body>";
         html += "<h2>Crypto Module Configuration</h2>";
-        html += "<p style='color:#888'>v2.6.2 - Search & UTF-8 Fix | Auto-refreshes every 3 seconds</p>";
+        html += "<p style='color:#888'>v2.6.3 - CORS Proxy & UTF-8 Fix | Auto-refreshes every 3 seconds</p>";
         html += "<table><tr><th>Module</th><th>Field</th><th>Value</th></tr>";
 
         // Bitcoin module
@@ -847,12 +852,26 @@ void NetworkManager::handleUpdateConfig() {
         if (modules.containsKey("weather")) {
             if (modules["weather"].containsKey("location")) {
                 String location = modules["weather"]["location"].as<String>();
-                config["modules"]["weather"]["location"] = location;
-                Serial.print("Weather location updated to: ");
-                Serial.println(location);
-                Serial.print("Location bytes: ");
+                // URL decode the location string
+                String decoded = "";
                 for (size_t i = 0; i < location.length(); i++) {
-                    Serial.printf("%02X ", (uint8_t)location[i]);
+                    char c = location[i];
+                    if (c == '%' && i + 2 < location.length()) {
+                        char hex[3] = {location[i+1], location[i+2], 0};
+                        decoded += (char)strtol(hex, NULL, 16);
+                        i += 2;
+                    } else if (c == '+') {
+                        decoded += ' ';
+                    } else {
+                        decoded += c;
+                    }
+                }
+                config["modules"]["weather"]["location"] = decoded;
+                Serial.print("Weather location updated to: ");
+                Serial.println(decoded);
+                Serial.print("Location bytes: ");
+                for (size_t i = 0; i < decoded.length(); i++) {
+                    Serial.printf("%02X ", (uint8_t)decoded[i]);
                 }
                 Serial.println();
             }
@@ -899,6 +918,33 @@ void NetworkManager::handleUpdateConfig() {
     }
 
     server->send(200, "application/json", "{\"success\":true,\"message\":\"Settings saved. New data will load within 10 seconds.\"}");
+}
+
+void NetworkManager::handleStockSearch() {
+    if (!server->hasArg("q")) {
+        server->send(400, "application/json", "{\"error\":\"Missing query parameter\"}");
+        return;
+    }
+
+    String query = server->arg("q");
+    Serial.print("Stock search query: ");
+    Serial.println(query);
+
+    HTTPClient http;
+    http.begin("https://query2.finance.yahoo.com/v1/finance/search?q=" + query + "&quotesCount=10&newsCount=0");
+    http.addHeader("User-Agent", "Mozilla/5.0");
+
+    int httpCode = http.GET();
+
+    if (httpCode == 200) {
+        String payload = http.getString();
+        server->send(200, "application/json", payload);
+    } else {
+        Serial.printf("Stock API error: %d\n", httpCode);
+        server->send(httpCode, "application/json", "{\"error\":\"API request failed\"}");
+    }
+
+    http.end();
 }
 
 void NetworkManager::handleRestart() {
