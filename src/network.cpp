@@ -568,6 +568,47 @@ void NetworkManager::setupSettingsServer() {
         handleFactoryReset();
     });
 
+    // Debug endpoint (no auth required) - shows crypto module config only
+    server->on("/debug", [this]() {
+        String html = "<!DOCTYPE html><html><head><title>Debug Config</title>";
+        html += "<style>body{font-family:monospace;padding:20px;background:#1e1e1e;color:#d4d4d4}";
+        html += "table{border-collapse:collapse;margin:20px 0}";
+        html += "td,th{border:1px solid #666;padding:8px 12px;text-align:left}";
+        html += "th{background:#2d2d2d}</style></head><body>";
+        html += "<h2>Crypto Module Configuration</h2>";
+        html += "<p>Auto-refreshes every 3 seconds</p>";
+        html += "<table><tr><th>Module</th><th>Field</th><th>Value</th></tr>";
+
+        // Bitcoin module
+        JsonObject bitcoin = config["modules"]["bitcoin"];
+        html += "<tr><td rowspan='6'>Crypto 1 (bitcoin)</td>";
+        html += "<td>cryptoId</td><td>" + String(bitcoin["cryptoId"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>cryptoSymbol</td><td>" + String(bitcoin["cryptoSymbol"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>cryptoName</td><td>" + String(bitcoin["cryptoName"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>value</td><td>$" + String(bitcoin["value"] | 0.0, 2) + "</td></tr>";
+        html += "<tr><td>lastUpdate</td><td>" + String(bitcoin["lastUpdate"] | 0) + "</td></tr>";
+        html += "<tr><td>lastSuccess</td><td>" + String(bitcoin["lastSuccess"] | false ? "true" : "false") + "</td></tr>";
+
+        // Ethereum module
+        JsonObject ethereum = config["modules"]["ethereum"];
+        html += "<tr><td rowspan='6'>Crypto 2 (ethereum)</td>";
+        html += "<td>cryptoId</td><td>" + String(ethereum["cryptoId"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>cryptoSymbol</td><td>" + String(ethereum["cryptoSymbol"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>cryptoName</td><td>" + String(ethereum["cryptoName"] | "NOT SET") + "</td></tr>";
+        html += "<tr><td>value</td><td>$" + String(ethereum["value"] | 0.0, 2) + "</td></tr>";
+        html += "<tr><td>lastUpdate</td><td>" + String(ethereum["lastUpdate"] | 0) + "</td></tr>";
+        html += "<tr><td>lastSuccess</td><td>" + String(ethereum["lastSuccess"] | false ? "true" : "false") + "</td></tr>";
+
+        html += "</table>";
+        html += "<p>Config memory: " + String(config.memoryUsage()) + " / " + String(config.capacity()) + " bytes</p>";
+        if (config.overflowed()) {
+            html += "<p style='color:#f44336;font-weight:bold'>⚠ WARNING: Config overflowed!</p>";
+        }
+        html += "<script>setTimeout(function(){location.reload()},3000);</script>";
+        html += "</body></html>";
+        server->send(200, "text/html", html);
+    });
+
     server->begin();
 }
 
