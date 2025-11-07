@@ -60,9 +60,33 @@ bool loadConfiguration() {
 
     Serial.println("Configuration loaded successfully");
 
+    // Migrate old configs: ensure crypto fields exist
+    bool needsSave = false;
+    JsonObject bitcoin = config["modules"]["bitcoin"];
+    if (!bitcoin.containsKey("cryptoId")) {
+        Serial.println("MIGRATION: Adding missing bitcoin crypto fields");
+        bitcoin["cryptoId"] = "bitcoin";
+        bitcoin["cryptoSymbol"] = "BTC";
+        bitcoin["cryptoName"] = "Bitcoin";
+        needsSave = true;
+    }
+
+    JsonObject ethereum = config["modules"]["ethereum"];
+    if (!ethereum.containsKey("cryptoId")) {
+        Serial.println("MIGRATION: Adding missing ethereum crypto fields");
+        ethereum["cryptoId"] = "ethereum";
+        ethereum["cryptoSymbol"] = "ETH";
+        ethereum["cryptoName"] = "Ethereum";
+        needsSave = true;
+    }
+
+    if (needsSave) {
+        Serial.println("Saving migrated config...");
+        saveConfiguration(true);  // Force save migration
+    }
+
     // Debug: Show what was loaded for crypto modules
     Serial.println("=== Loaded Config (Crypto Modules) ===");
-    JsonObject bitcoin = config["modules"]["bitcoin"];
     Serial.print("Bitcoin - ID: ");
     Serial.print(bitcoin["cryptoId"] | "NOT SET");
     Serial.print(", Name: ");
@@ -70,7 +94,6 @@ bool loadConfiguration() {
     Serial.print(", Symbol: ");
     Serial.println(bitcoin["cryptoSymbol"] | "NOT SET");
 
-    JsonObject ethereum = config["modules"]["ethereum"];
     Serial.print("Ethereum - ID: ");
     Serial.print(ethereum["cryptoId"] | "NOT SET");
     Serial.print(", Name: ");
