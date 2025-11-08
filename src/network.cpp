@@ -60,16 +60,15 @@ label{display:block;margin-top:15px;font-weight:bold}h2{text-align:center}
 .search-item{padding:10px;cursor:pointer;border-bottom:1px solid #eee;display:flex;align-items:center}
 .search-item:hover{background:#f5f5f5}.search-item img{width:24px;height:24px;margin-right:10px}
 .current-value{font-size:14px;color:#666;margin-top:5px}</style></head><body>
-<div id="login-view"><h2>DataTracker Settings</h2><p>Enter code from device display:</p>
+<div id="login-view" class="hidden"><h2>DataTracker Settings</h2><p>Enter code from device display:</p>
 <input type="text" id="code" class="code-input" maxlength="6" placeholder="000000" pattern="[0-9]{6}">
 <button onclick="validateCode()">Unlock Settings</button><div id="error" class="error"></div>
 <p class="timer" id="timer"></p></div>
-<div id="settings-view" class="hidden"><h2>Settings</h2>
-<div style="text-align:right;margin-bottom:10px"><button onclick="logout()" style="width:auto;padding:8px 16px;font-size:12px">Logout</button></div>
+<div id="settings-view"><h2>Settings</h2>
 <label>Active Module:</label><select id="activeModule">
 <option value="bitcoin">Crypto 1</option><option value="ethereum">Crypto 2</option>
 <option value="stock">Stock</option><option value="weather">Weather</option>
-<option value="custom">Custom</option><option value="settings">Settings</option></select>
+<option value="custom">Custom</option></select>
 <label>Crypto 1 (Bitcoin Module):</label>
 <div class="search-container">
 <input type="text" id="btcSearch" placeholder="Search cryptocurrency..." oninput="searchCrypto('bitcoin',this.value)">
@@ -636,7 +635,7 @@ void NetworkManager::setupSettingsServer() {
         html += "td,th{border:1px solid #666;padding:8px 12px;text-align:left}";
         html += "th{background:#2d2d2d}</style></head><body>";
         html += "<h2>Crypto Module Configuration</h2>";
-        html += "<p style='color:#888'>v2.6.11 - Focus on Stock & Weather | Auto-refreshes every 3 seconds</p>";
+        html += "<p style='color:#888'>v2.6.12 - Focus on Stock & Weather | Auto-refreshes every 3 seconds</p>";
         html += "<table><tr><th>Module</th><th>Field</th><th>Value</th></tr>";
 
         // Bitcoin module
