@@ -13,7 +13,6 @@
 #include "modules/stock_module.cpp"
 #include "modules/weather_module.cpp"
 #include "modules/custom_module.cpp"
-#include "modules/settings_module.cpp"
 
 // Global objects
 DisplayManager display;
@@ -50,7 +49,7 @@ void handleSerialCommand();
 void setup() {
     Serial.begin(115200);
     delay(1000);
-    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.6.10 ===");
+    Serial.println("\n\n=== ESP32-C3 Data Tracker v2.6.11 ===");
     Serial.println("Build: Revert to Working Code - Nov 8 2024");
     Serial.println("Initializing...\n");
 
@@ -108,7 +107,6 @@ void setup() {
             scheduler.registerModule(new StockModule());
             scheduler.registerModule(new WeatherModule());
             scheduler.registerModule(new CustomModule());
-            scheduler.registerModule(new SettingsModule());
 
             Serial.println("All modules registered");
 
