@@ -6,6 +6,9 @@
 #define MAX_FAILED_ATTEMPTS 3
 
 SecurityManager::SecurityManager() {
+    // Seed random with millis to ensure different values each boot
+    randomSeed(millis());
+
     currentCode.code = 0;
     currentCode.generatedAt = 0;
     currentCode.used = false;
