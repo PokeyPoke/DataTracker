@@ -636,7 +636,7 @@ void NetworkManager::setupSettingsServer() {
         html += "td,th{border:1px solid #666;padding:8px 12px;text-align:left}";
         html += "th{background:#2d2d2d}</style></head><body>";
         html += "<h2>Crypto Module Configuration</h2>";
-        html += "<p style='color:#888'>v2.6.3 - CORS Proxy & UTF-8 Fix | Auto-refreshes every 3 seconds</p>";
+        html += "<p style='color:#888'>v2.6.4 - Auto-Fetch Fix | Auto-refreshes every 3 seconds</p>";
         html += "<table><tr><th>Module</th><th>Field</th><th>Value</th></tr>";
 
         // Bitcoin module
@@ -842,6 +842,11 @@ void NetworkManager::handleUpdateConfig() {
         if (modules.containsKey("stock")) {
             if (modules["stock"].containsKey("ticker")) {
                 config["modules"]["stock"]["ticker"] = modules["stock"]["ticker"].as<String>();
+                // Clear cached stock data to force fresh fetch
+                config["modules"]["stock"]["value"] = 0.0;
+                config["modules"]["stock"]["change"] = 0.0;
+                config["modules"]["stock"]["lastUpdate"] = 0;
+                config["modules"]["stock"]["lastSuccess"] = false;
             }
             if (modules["stock"].containsKey("name")) {
                 config["modules"]["stock"]["name"] = modules["stock"]["name"].as<String>();
@@ -867,6 +872,11 @@ void NetworkManager::handleUpdateConfig() {
                     }
                 }
                 config["modules"]["weather"]["location"] = decoded;
+                // Clear cached weather data to force fresh fetch
+                config["modules"]["weather"]["temperature"] = 0;
+                config["modules"]["weather"]["condition"] = "Unknown";
+                config["modules"]["weather"]["lastUpdate"] = 0;
+                config["modules"]["weather"]["lastSuccess"] = false;
                 Serial.print("Weather location updated to: ");
                 Serial.println(decoded);
                 Serial.print("Location bytes: ");
@@ -914,6 +924,14 @@ void NetworkManager::handleUpdateConfig() {
         if (modules.containsKey("ethereum") && modules["ethereum"].containsKey("cryptoId")) {
             Serial.println("Requesting forced fetch for ethereum module");
             scheduler.requestFetch("ethereum", true);
+        }
+        if (modules.containsKey("stock") && modules["stock"].containsKey("ticker")) {
+            Serial.println("Requesting forced fetch for stock module");
+            scheduler.requestFetch("stock", true);
+        }
+        if (modules.containsKey("weather") && modules["weather"].containsKey("location")) {
+            Serial.println("Requesting forced fetch for weather module");
+            scheduler.requestFetch("weather", true);
         }
     }
 
