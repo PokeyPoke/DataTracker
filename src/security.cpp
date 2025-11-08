@@ -1,4 +1,5 @@
 #include "security.h"
+#include "esp_random.h"  // ESP32 hardware RNG
 
 #define CODE_EXPIRATION_MS 300000    // 5 minutes
 #define SESSION_EXPIRATION_MS 1800000 // 30 minutes
@@ -19,7 +20,8 @@ SecurityManager::SecurityManager() {
 
 uint32_t SecurityManager::generateNewCode() {
     // Reset previous code state
-    currentCode.code = random(100000, 999999);  // 6-digit code
+    // Use ESP32 hardware RNG for cryptographically secure random numbers
+    currentCode.code = 100000 + (esp_random() % 900000);  // 6-digit code (100000-999999)
     currentCode.generatedAt = millis();
     currentCode.used = false;
     currentCode.failedAttempts = 0;
@@ -125,10 +127,10 @@ unsigned long SecurityManager::getLockoutTimeRemaining() {
 }
 
 String SecurityManager::createSession() {
-    // Generate random 32-character hex token
+    // Generate random 32-character hex token using ESP32 hardware RNG
     char token[33];
     for (int i = 0; i < 32; i++) {
-        token[i] = "0123456789abcdef"[random(0, 16)];
+        token[i] = "0123456789abcdef"[esp_random() % 16];
     }
     token[32] = '\0';
 
